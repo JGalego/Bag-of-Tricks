@@ -1,0 +1,10 @@
+{
+  "name": "strawman",
+  "description": "argue with yourself before the internet does. — red-team a prompt across jailbreak, injection, derailment, extraction, and ambiguity. Ships a skill and a `strawman` CLI.",
+  "version": "0.1.0",
+  "author": {
+    "name": "João Galego"
+  },
+  "license": "MIT",
+  "keywords": ["llm", "prompt", "red-team", "security", "testing"]
+}

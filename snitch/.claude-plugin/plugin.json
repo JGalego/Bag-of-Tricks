@@ -1,0 +1,10 @@
+{
+  "name": "snitch",
+  "description": "see what your agent actually said behind your back. — a transparent proxy + web UI that logs the exact bytes your agent sends the model. Ships a skill and a `snitch` CLI.",
+  "version": "0.1.0",
+  "author": {
+    "name": "João Galego"
+  },
+  "license": "MIT",
+  "keywords": ["llm", "proxy", "observability", "debugging", "agents"]
+}

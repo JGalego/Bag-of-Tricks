@@ -48,12 +48,34 @@ echo "Certainly! I'd be happy to help. Here is the answer: 42 🎉" | python3 de
 
 Each folder has its own README with the full pitch and usage.
 
-## install
+## use as a Claude Code plugin
 
-Recipes run with [`just`](https://github.com/casey/just). Every trick is both a
-CLI and a [skill](https://docs.claude.com/en/docs/agents-and-tools/skills);
-installing one symlinks its CLI into `~/.local/bin` and its `SKILL.md` into
-`~/.claude/skills/` (so Claude Code can discover it):
+The bag is a [plugin marketplace](https://code.claude.com/docs/en/plugin-marketplaces):
+each trick is a [plugin](https://code.claude.com/docs/en/plugins) that ships its
+skill **and** puts its CLI on the Bash tool's `PATH` while enabled — no separate
+install step.
+
+```bash
+# add the marketplace, then install the tricks you want
+/plugin marketplace add <you>/bag-of-tricks
+/plugin install snitch@bag-of-tricks
+/plugin install deadpan@bag-of-tricks
+```
+
+Want to try it before publishing? Load a plugin straight from a checkout:
+
+```bash
+claude --plugin-dir ./snitch
+```
+
+Plugin skills are namespaced (`/deadpan:deadpan`, `/strawman:strawman`, …), and
+each plugin's CLI (`snitch`, `steno`, …) is runnable while the plugin is enabled.
+
+## install standalone (just)
+
+Prefer plain CLIs and skills without the plugin system? Recipes run with
+[`just`](https://github.com/casey/just). Installing a trick symlinks its CLI into
+`~/.local/bin` and its `SKILL.md` into `~/.claude/skills/`:
 
 ```bash
 just install                   # install every trick

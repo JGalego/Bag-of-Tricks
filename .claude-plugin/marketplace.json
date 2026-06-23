@@ -1,0 +1,44 @@
+{
+  "name": "bag-of-tricks",
+  "owner": {
+    "name": "João Galego"
+  },
+  "description": "a small bag of clever, single-idea LLM hacks — each trick is a plugin",
+  "plugins": [
+    {
+      "name": "deadpan",
+      "source": "./deadpan",
+      "description": "the answer. nothing else. — strip LLM replies of personality, filler, hedging, emoji, and sycophancy.",
+      "category": "output",
+      "tags": ["llm", "skill", "cli", "formatting", "terse"]
+    },
+    {
+      "name": "snitch",
+      "source": "./snitch",
+      "description": "see what your agent actually said behind your back. — a transparent proxy + web UI that logs the exact bytes your agent sends the model.",
+      "category": "debugging",
+      "tags": ["llm", "proxy", "observability", "debugging", "agents"]
+    },
+    {
+      "name": "strawman",
+      "source": "./strawman",
+      "description": "argue with yourself before the internet does. — red-team a prompt across jailbreak, injection, derailment, extraction, and ambiguity.",
+      "category": "security",
+      "tags": ["llm", "prompt", "red-team", "security", "testing"]
+    },
+    {
+      "name": "interrobang",
+      "source": "./interrobang",
+      "description": "make it ask before it acts. — flip the helpful-assistant reflex: ask one sharp clarifying question instead of guessing.",
+      "category": "workflow",
+      "tags": ["llm", "skill", "clarifying-questions", "workflow"]
+    },
+    {
+      "name": "steno",
+      "source": "./steno",
+      "description": "two letters, and the prompt writes itself. — short aliases that expand into full prompts for common dev tasks.",
+      "category": "productivity",
+      "tags": ["llm", "prompts", "aliases", "productivity", "cli"]
+    }
+  ]
+}

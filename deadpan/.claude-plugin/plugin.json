@@ -1,0 +1,10 @@
+{
+  "name": "deadpan",
+  "description": "the answer. nothing else. — strip LLM replies of personality, filler, hedging, emoji, and sycophancy. Ships a skill and a `deadpan` CLI filter.",
+  "version": "0.1.0",
+  "author": {
+    "name": "João Galego"
+  },
+  "license": "MIT",
+  "keywords": ["llm", "skill", "cli", "formatting", "terse"]
+}

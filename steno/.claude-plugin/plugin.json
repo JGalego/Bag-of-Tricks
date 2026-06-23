@@ -1,0 +1,10 @@
+{
+  "name": "steno",
+  "description": "two letters, and the prompt writes itself. — short aliases that expand into full prompts for common dev tasks; optionally runs them. Ships a skill and a `steno` CLI.",
+  "version": "0.1.0",
+  "author": {
+    "name": "João Galego"
+  },
+  "license": "MIT",
+  "keywords": ["llm", "prompts", "aliases", "productivity", "cli"]
+}

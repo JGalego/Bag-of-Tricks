@@ -1,0 +1,10 @@
+{
+  "name": "interrobang",
+  "description": "make it ask before it acts. — flip the helpful-assistant reflex: ask one sharp clarifying question instead of guessing. Ships a skill and an `interrobang` CLI.",
+  "version": "0.1.0",
+  "author": {
+    "name": "João Galego"
+  },
+  "license": "MIT",
+  "keywords": ["llm", "skill", "clarifying-questions", "workflow"]
+}
