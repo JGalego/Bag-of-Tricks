@@ -1,0 +1,10 @@
+{
+  "name": "mugshot",
+  "description": "we know your prints. — guess which model or family likely wrote a passage from its stylistic fingerprints (gpt-ish, claude-ish, generic-AI) and show the matched tells. A heuristic, not proof. Ships a skill and a `mugshot` CLI.",
+  "version": "0.1.0",
+  "author": { "name": "João Galego" },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/mugshot",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "stylometry", "detection", "attribution", "writing", "cli"]
+}

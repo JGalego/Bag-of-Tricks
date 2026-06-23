@@ -1,0 +1,12 @@
+{
+  "name": "lineup",
+  "description": "same prompt, the whole lineup. — run one prompt across several models and compare the answers side by side for model selection and spotting disagreement. Ships a skill and a `lineup` CLI.",
+  "version": "0.1.0",
+  "author": {
+    "name": "João Galego"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/lineup",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "models", "comparison", "evaluation", "model-selection", "cli"]
+}

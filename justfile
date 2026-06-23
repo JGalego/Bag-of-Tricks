@@ -1,11 +1,26 @@
 # bag of tricks — task runner (https://github.com/casey/just)
 # `just` with no args lists recipes.
 
-_all := "deadpan snitch strawman interrobang steno salvage frisk tell tollbooth bluff"
+_all := "deadpan snitch strawman interrobang steno salvage frisk tell tollbooth bluff mole launder alibi fold grill lineup mugshot"
 
 # list available recipes
 default:
     @just --list
+
+# pretty-print every trick — name, catchphrase, and what it does
+list:
+    #!/usr/bin/env python3
+    import json, textwrap
+    plugins = json.load(open("{{justfile_directory()}}/.claude-plugin/marketplace.json"))["plugins"]
+    BOLD, DIM, CYAN, R = "\033[1m", "\033[2m", "\033[36m", "\033[0m"
+    w = max(len(p["name"]) for p in plugins)
+    print(f"\n  {BOLD}bag of tricks{R} — {len(plugins)} in the bag\n")
+    for p in plugins:
+        tag, _, what = p["description"].partition(" — ")
+        print(f"  {CYAN}{BOLD}{p['name'].ljust(w)}{R}  {tag}")
+        for line in textwrap.wrap(what, 72):
+            print(f"  {' ' * w}  {DIM}{line}{R}")
+        print()
 
 # install one or more tricks (default: all) as CLI commands + skills
 install +tricks="all":

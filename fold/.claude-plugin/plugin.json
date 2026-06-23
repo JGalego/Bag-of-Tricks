@@ -1,0 +1,10 @@
+{
+  "name": "fold",
+  "description": "know when to fold. — catch overconfident phrasing (absolutes, bare certainty, false authority) in a draft answer and prefer calibrated uncertainty or honest abstention. Ships a skill and a `fold` CLI.",
+  "version": "0.1.0",
+  "author": { "name": "João Galego" },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/fold",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "calibration", "overconfidence", "hallucination", "uncertainty", "cli"]
+}

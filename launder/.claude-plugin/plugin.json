@@ -1,0 +1,10 @@
+{
+  "name": "launder",
+  "description": "wash out the prints. — strip the mechanical fingerprints (zero-width chars, smart quotes, em/en dashes, unicode ellipsis, exotic spaces, soft hyphens) that mark text as machine-produced, without rewriting a word. Ships a skill and a `launder` CLI.",
+  "version": "0.1.0",
+  "author": { "name": "João Galego" },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/launder",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "text", "unicode", "normalization", "typography", "cli"]
+}

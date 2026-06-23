@@ -1,0 +1,10 @@
+{
+  "name": "mole",
+  "description": "find the plant. — sniff out planted instructions hiding in untrusted text (a pasted page, a tool result, retrieved RAG context) before it reaches the model — instruction overrides, role spoofing, jailbreaks, prompt-leaks — and tag or refuse them. Ships a skill and a `mole` CLI.",
+  "version": "0.1.0",
+  "author": { "name": "João Galego" },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/mole",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "security", "prompt-injection", "jailbreak", "input", "cli"]
+}

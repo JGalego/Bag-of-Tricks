@@ -8,7 +8,7 @@
   <a href="LICENSE"><img alt="license: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-blue.svg">
   <a href="https://github.com/astral-sh/ruff"><img alt="code style: ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
-  <img alt="tricks: 10" src="https://img.shields.io/badge/tricks-10-111111.svg">
+  <img alt="tricks: 17" src="https://img.shields.io/badge/tricks-17-111111.svg">
 </p>
 
 > a small bag of clever hacks for people who work with LLMs all day.
@@ -27,12 +27,19 @@ A growing set of single-idea tools. Each lives in its own folder, does one thing
 | [`tell`](tell/) | *every AI has a tell.* | flags the giveaways in AI-written prose — "delve", "tapestry", "it's not just X, it's Y", em-dash overuse. |
 | [`tollbooth`](tollbooth/) | *know the bill before the bill.* | estimates token count and dollar cost of a prompt across models before you send it. |
 | [`bluff`](bluff/) | *call its bluff.* | extracts the URLs & citations from an answer and checks they actually resolve — catching hallucinated links. |
+| [`mole`](mole/) | *find the plant.* | sniffs untrusted input for planted / injected instructions before they reach the model — frisk for what comes *in*. |
+| [`launder`](launder/) | *wash out the prints.* | strips the mechanical fingerprints from text — zero-width chars, smart quotes, exotic spaces, em-dash tics. |
+| [`alibi`](alibi/) | *does the story check out?* | flags answer claims that aren't supported by the provided sources — a lexical grounding check for RAG. |
+| [`fold`](fold/) | *know when to fold.* | catches overconfident phrasing and absolutes so the model hedges or abstains instead of bluffing. |
+| [`grill`](grill/) | *put it in the hot seat.* | adversarially interrogates an answer with probing follow-ups before you trust it. |
+| [`lineup`](lineup/) | *same prompt, the whole lineup.* | runs one prompt across several models and lays the answers side by side. |
+| [`mugshot`](mugshot/) | *we know your prints.* | guesses which model wrote a passage from its stylistic fingerprints — a parlor trick, not proof. |
 
 ## the philosophy
 
 Caveman cuts *tokens*. Headroom compresses *context*. This bag is about everything *else* that's annoying when you build with LLMs: they're chatty, they hide their prompts, they're easy to break, they guess when they should ask — and whatever the next annoyance turns out to be. Each trick takes on exactly one of them. New tricks get added as the irritations pile up.
 
-Everything here is Python 3.9+, mostly standard library — most tricks have **zero dependencies** (`bluff` even checks links with nothing but `urllib`). Two tricks reach further: `strawman` needs the [`anthropic`](https://github.com/anthropics/anthropic-sdk-python) SDK to actually attack (it has a `--dry-run` that needs nothing), and `tollbooth` *optionally* uses [`tiktoken`](https://github.com/openai/tiktoken) for exact token counts, falling back to a built-in heuristic when it's absent.
+Everything here is Python 3.9+, mostly standard library — most tricks have **zero dependencies** (`bluff` even checks links with nothing but `urllib`). A few reach further: `strawman`, `grill`, and `lineup` use the [`anthropic`](https://github.com/anthropics/anthropic-sdk-python) SDK to actually call a model (each has a `--dry-run` that needs nothing), and `tollbooth` *optionally* uses [`tiktoken`](https://github.com/openai/tiktoken) for exact token counts, falling back to a built-in heuristic when it's absent.
 
 ```bash
 git clone <this repo>

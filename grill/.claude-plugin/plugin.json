@@ -1,0 +1,12 @@
+{
+  "name": "grill",
+  "description": "put it in the hot seat. — adversarially interrogate an answer across assumptions, edge-cases, contradictions, sources, overconfidence, and falsifiability, then report where it holds and where it cracks. Ships a skill and a `grill` CLI.",
+  "version": "0.1.0",
+  "author": {
+    "name": "João Galego"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/grill",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "red-team", "critique", "verification", "cli"]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "alibi",
+  "description": "does the story check out? — verify an answer's claims are grounded in the provided sources and flag fabricated or unsupported statements (lexical, deterministic, no model calls). Ships a skill and an `alibi` CLI.",
+  "version": "0.1.0",
+  "author": { "name": "João Galego" },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/alibi",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "hallucination", "grounding", "faithfulness", "rag", "citations", "cli"]
+}

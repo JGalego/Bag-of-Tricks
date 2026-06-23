@@ -74,6 +74,55 @@
       "description": "call its bluff. — extract the URLs and citations from an answer and check they actually resolve, catching hallucinated links.",
       "category": "debugging",
       "tags": ["llm", "hallucination", "citations", "urls", "cli"]
+    },
+    {
+      "name": "mole",
+      "source": "./mole",
+      "description": "find the plant. — sniff out prompt-injection and planted instructions hiding in untrusted input before it reaches the model.",
+      "category": "security",
+      "tags": ["llm", "security", "prompt-injection", "input", "cli"]
+    },
+    {
+      "name": "launder",
+      "source": "./launder",
+      "description": "wash out the prints. — strip the mechanical fingerprints from text: zero-width chars, smart quotes, exotic spaces, em-dash tics.",
+      "category": "output",
+      "tags": ["llm", "text", "unicode", "normalization", "cli"]
+    },
+    {
+      "name": "alibi",
+      "source": "./alibi",
+      "description": "does the story check out? — flag answer claims that aren't supported by the provided sources (a lexical grounding check for RAG).",
+      "category": "debugging",
+      "tags": ["llm", "hallucination", "grounding", "rag", "cli"]
+    },
+    {
+      "name": "fold",
+      "source": "./fold",
+      "description": "know when to fold. — catch overconfident phrasing and absolutes so the model hedges or abstains instead of bluffing.",
+      "category": "output",
+      "tags": ["llm", "calibration", "overconfidence", "hallucination", "cli"]
+    },
+    {
+      "name": "grill",
+      "source": "./grill",
+      "description": "put it in the hot seat. — adversarially interrogate an answer with probing follow-ups before you trust it.",
+      "category": "debugging",
+      "tags": ["llm", "red-team", "critique", "verification", "cli"]
+    },
+    {
+      "name": "lineup",
+      "source": "./lineup",
+      "description": "same prompt, the whole lineup. — run one prompt across several models and lay the answers side by side.",
+      "category": "productivity",
+      "tags": ["llm", "models", "comparison", "evaluation", "cli"]
+    },
+    {
+      "name": "mugshot",
+      "source": "./mugshot",
+      "description": "we know your prints. — guess which model wrote a passage from its stylistic fingerprints (a heuristic, not proof).",
+      "category": "output",
+      "tags": ["llm", "stylometry", "detection", "attribution", "cli"]
     }
   ]
 }
