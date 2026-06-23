@@ -1,6 +1,6 @@
-# snitch
-
-> **see what your agent actually said behind your back.**
+<p align="center">
+  <img src="logo.png" alt="snitch" width="420">
+</p>
 
 You wrote a 12-line prompt. Your agent framework sent the model 4,000 tokens of
 system prompt, six tool schemas you forgot you registered, three injected

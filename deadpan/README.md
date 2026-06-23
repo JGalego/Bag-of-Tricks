@@ -1,6 +1,6 @@
-# deadpan
-
-> **the answer. nothing else.**
+<p align="center">
+  <img src="logo.png" alt="deadpan" width="420">
+</p>
 
 Caveman makes the model *short*. deadpan makes it *shut up*. A response can be
 terse and still chirpy — "Sure! 42 🎉" is four tokens of personality wrapped

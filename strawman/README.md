@@ -1,6 +1,6 @@
-# strawman
-
-> **argue with yourself before the internet does.**
+<p align="center">
+  <img src="logo.png" alt="strawman" width="420">
+</p>
 
 You ship a system prompt. Within an hour someone on the internet has talked it
 into ignoring its instructions, leaking its tools, or writing a poem when it was

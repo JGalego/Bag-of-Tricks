@@ -1,6 +1,6 @@
-# steno
-
-> **two letters, and the prompt writes itself.**
+<p align="center">
+  <img src="logo.png" alt="steno" width="420">
+</p>
 
 You type the same prompts all day — "review this code", "write tests for this",
 "explain what this does". steno gives them mind-numbingly short aliases that

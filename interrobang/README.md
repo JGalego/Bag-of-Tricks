@@ -1,6 +1,6 @@
-# interrobang ‽
-
-> **make it ask before it acts.**
+<p align="center">
+  <img src="logo.png" alt="interrobang" width="420">
+</p>
 
 An LLM's default reflex is to be helpful by answering *now*. When the request is
 underspecified, "answer now" quietly becomes "guess now" — and you find out it
