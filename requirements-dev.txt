@@ -1,0 +1,4 @@
+# dev/CI tooling only — the tricks themselves need no third-party packages
+# (strawman needs `anthropic` to run for real, but its tests stub it out).
+ruff==0.9.6
+pytest>=8,<9

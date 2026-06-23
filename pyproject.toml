@@ -1,0 +1,26 @@
+[project]
+name = "bag-of-tricks"
+version = "0.1.0"
+description = "a small bag of clever LLM hacks — deadpan, snitch, strawman, interrobang"
+requires-python = ">=3.9"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+# ruff defaults (E4/E7/E9, F) plus import sorting (I), pycodestyle warnings (W),
+# pyupgrade (UP), and a few bugbear checks (B). E501 (line length) stays off so
+# prose-heavy strings don't churn.
+select = ["E4", "E7", "E9", "F", "I", "W", "UP", "B"]
+
+[tool.pytest.ini_options]
+# Each trick lives in its own folder with a test_<trick>.py beside it. pytest's
+# default (prepend) import mode puts each test's directory on sys.path, so
+# `import deadpan` / `import snitch` / ... resolve to the sibling module.
+testpaths = ["deadpan", "snitch", "strawman", "interrobang"]
+python_files = ["test_*.py"]
+# -q: quiet. -p no:pylama: disable an unrelated pytest plugin some local envs
+# auto-load (it emits a pkg_resources deprecation warning). Harmless no-op in
+# CI / envs where pylama isn't installed.
+addopts = "-q -p no:pylama"

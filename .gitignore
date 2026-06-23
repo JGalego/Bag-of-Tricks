@@ -1,0 +1,14 @@
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# snitch logs
+*.snitch.jsonl
+snitch-logs/
+
+# os
+.DS_Store
