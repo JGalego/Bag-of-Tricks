@@ -15,6 +15,7 @@ installs in seconds, and has a catchphrase it has to live up to. Inspired in
 | [`snitch`](snitch/) | *see what your agent actually said behind your back.* | a transparent proxy that logs the **exact bytes** your agent sends the model. |
 | [`strawman`](strawman/) | *argue with yourself before the internet does.* | red-teams your own prompt — an adversarial model tries to break it and reports where it cracked. |
 | [`interrobang`](interrobang/) | *make it ask before it acts.* ‽ | flips the helpful-assistant reflex: ask one sharp question instead of guessing. |
+| [`steno`](steno/) | *two letters, and the prompt writes itself.* | mind-numbingly short aliases that expand into full prompts for common dev tasks. |
 
 ## the philosophy
 
