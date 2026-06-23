@@ -13,8 +13,10 @@ It comes in two halves:
   that tells the model to check every chunk of context for credentials before
   it forwards anything, and to redact instead of relay.
 - **`frisk.py`** — a zero-dependency `stdin->stdout` filter that finds API keys,
-  tokens, private keys, JWTs, and emails and swaps them for
-  `[REDACTED:type]`. Cleaned text to stdout, the report to stderr.
+  tokens, private keys, JWTs, emails, SSNs, credit cards, and phone numbers and
+  swaps them for `[REDACTED:type]`. With `--pii` it also redacts free-form PII
+  (names, addresses, DOB) keyed off field names. Cleaned text to stdout, the
+  report to stderr.
 
 ## the filter
 
@@ -41,15 +43,26 @@ python3 frisk.py --report < context.md
 | `--report`  | list findings (type + masked preview) to stdout, exit 0    |
 | `--json`    | emit findings as JSON (masked, never the full secret)      |
 | `--ip`      | also flag IPv4 addresses (off by default — too noisy)      |
+| `--pii`     | also redact free-form PII (names, addresses, DOB) by field name |
 | `--only t1,t2` | restrict to listed detector types                       |
 | `--tag FMT` | redaction tag format, e.g. `'<<{type}>>'`                  |
 
 ### what it looks for
 
 AWS access keys, OpenAI keys (`sk-…`, `sk-proj-…`), GitHub tokens (`ghp_…`),
-Slack tokens (`xox…`), `Bearer …` tokens, JWTs, PEM private-key blocks, and
-email addresses. IPv4 is opt-in. Findings carry their offsets, so the cleaned
-text round-trips byte-for-byte around the redactions.
+Slack tokens (`xox…`), `Bearer …` tokens, JWTs, PEM private-key blocks, email
+addresses, US SSNs, credit-card numbers (Luhn-checked so random digit runs
+don't trip it), and phone numbers. IPv4 is opt-in.
+
+Free-form PII — a person's name, street, or birthday — has no regex shape, so
+`--pii` keys off the *field name* instead: it redacts the value under `name`,
+`street`, `city`, `dob`, `phone`, etc. (matched case- and separator-insensitively,
+so `firstName` and `first_name` both count) while leaving the key and JSON
+structure intact. It's opt-in because keying off field names over-redacts plain
+config — reach for it on customer/user/profile data.
+
+Findings carry their offsets, so the cleaned text round-trips byte-for-byte
+around the redactions.
 
 ### what it will never do
 

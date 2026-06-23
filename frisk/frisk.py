@@ -49,12 +49,92 @@ _DETECTORS: dict[str, re.Pattern[str]] = {
     "jwt": re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b"),
     # Email addresses (good-enough, not RFC-perfect).
     "email": re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
+    # US Social Security numbers: 3-2-4 digits.
+    "ssn": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+    # Credit-card-shaped runs of 13-19 digits (spaces/dashes allowed). Luhn-
+    # filtered after the fact so random long numbers don't trip it.
+    "credit_card": re.compile(r"\b\d(?:[ -]?\d){12,18}\b"),
+    # Phone numbers: optional country code, optional (area), 3-4 split. The
+    # lookarounds keep it from biting into SSNs or longer digit runs.
+    "phone": re.compile(
+        r"(?<![\d-])(?:\+?\d{1,3}[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}(?![\d-])"
+    ),
     # IPv4 — noisy, so only enabled when explicitly requested via --ip.
     "ipv4": re.compile(r"\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b"),
 }
 
 # Detectors that run by default. ipv4 is opt-in (too many false positives).
 _DEFAULT_TYPES = frozenset(_DETECTORS) - {"ipv4"}
+
+# --- free-form PII via keys ----------------------------------------------
+# Names, streets, and birthdays have no reliable *shape* — so we can't regex
+# them. In structured text the high-signal tell is the *key*: a field called
+# "name" or "street" is almost certainly carrying PII. When pii is on we redact
+# the *value* of any key that maps below, keeping the key (and the surrounding
+# JSON structure) intact. Keys are normalized — lowercased, non-alphanumerics
+# stripped — so "firstName", "first_name", and "First Name" all collapse to
+# "firstname". The mapped label is what shows up in the redaction tag. This is
+# opt-in (like ipv4): keying off field names over-redacts plain config, so the
+# caller asks for it explicitly.
+_PII_KEYS: dict[str, str] = {
+    "name": "name", "fullname": "name", "firstname": "name", "lastname": "name",
+    "middlename": "name", "givenname": "name", "surname": "name",
+    "familyname": "name", "displayname": "name",
+    "street": "address", "streetaddress": "address", "address": "address",
+    "addressline1": "address", "addressline2": "address", "addr": "address",
+    "city": "address", "state": "address", "zip": "address",
+    "zipcode": "address", "postalcode": "address", "postcode": "address",
+    "dob": "dob", "dateofbirth": "dob", "birthdate": "dob", "birthday": "dob",
+    "phone": "phone", "phonenumber": "phone", "mobile": "phone",
+    "telephone": "phone", "tel": "phone", "cell": "phone",
+    "ssn": "ssn", "socialsecuritynumber": "ssn", "nationalid": "ssn",
+    "passport": "passport", "passportnumber": "passport",
+    "license": "license", "driverslicense": "license",
+}
+
+# A JSON string pair: "key": "value" — redacts the value's inner span only, so
+# the surrounding quotes (and thus valid JSON) survive.
+_PII_JSON = re.compile(r'"(?P<key>[^"]+)"\s*:\s*"(?P<val>(?:[^"\\]|\\.)*)"')
+
+# A bare key: value / key = value line (yaml/ini/env). The value must NOT start
+# with a quote, { or [ — quoted JSON values are handled by _PII_JSON, and we
+# won't swallow nested structures.
+_PII_LINE = re.compile(
+    r"(?m)^[ \t]*(?P<key>[A-Za-z][A-Za-z0-9_. -]*?)[ \t]*[:=][ \t]*"
+    r"(?P<val>[^\"{\[\n][^\n,]*?)[ \t]*,?[ \t]*$"
+)
+
+
+def _norm_key(key: str) -> str:
+    """Lowercase a key and strip everything that isn't a letter or digit."""
+    return re.sub(r"[^a-z0-9]", "", key.lower())
+
+
+def _luhn_ok(text: str) -> bool:
+    """True if the digits in ``text`` pass the Luhn checksum (13-19 long)."""
+    digits = [int(c) for c in text if c.isdigit()]
+    if not 13 <= len(digits) <= 19:
+        return False
+    total = 0
+    for i, d in enumerate(reversed(digits)):
+        if i % 2 == 1:
+            d *= 2
+            if d > 9:
+                d -= 9
+        total += d
+    return total % 10 == 0
+
+
+def _pii_spans(text: str) -> list[tuple[int, int, str, str]]:
+    """Spans for the *values* of PII-signalling keys (JSON + key:value lines)."""
+    spans: list[tuple[int, int, str, str]] = []
+    for pat in (_PII_JSON, _PII_LINE):
+        for m in pat.finditer(text):
+            label = _PII_KEYS.get(_norm_key(m.group("key")))
+            val = m.group("val")
+            if label and val.strip():
+                spans.append((m.start("val"), m.end("val"), label, val))
+    return spans
 
 # How long a preview to show before the ellipsis — enough to recognize the
 # shape, not enough to leak the secret.
@@ -67,12 +147,16 @@ def _mask(match: str) -> str:
     return f"{head}…" if len(match) > _PREVIEW else "…"
 
 
-def frisk(text: str, types: set[str] | None = None) -> tuple[str, list[dict]]:
+def frisk(
+    text: str, types: set[str] | None = None, pii: bool = False
+) -> tuple[str, list[dict]]:
     """Pat ``text`` down for secrets/PII.
 
     Returns ``(redacted_text, findings)`` where each finding is
     ``{"type", "match", "start", "end"}`` against the *original* text.
     ``types`` optionally restricts which detectors run (default: all but ipv4).
+    ``pii=True`` additionally redacts free-form values (names, addresses, dates
+    of birth, …) keyed off their field names — see ``_PII_KEYS``.
 
     Overlapping matches are resolved left-to-right, longest-first, so offsets
     stay sane and the rebuilt text never gets corrupted.
@@ -85,7 +169,14 @@ def frisk(text: str, types: set[str] | None = None) -> tuple[str, list[dict]]:
         if name not in active:
             continue
         for m in _DETECTORS[name].finditer(text):
+            # Credit-card shape is noisy; keep only Luhn-valid runs.
+            if name == "credit_card" and not _luhn_ok(m.group(0)):
+                continue
             spans.append((m.start(), m.end(), name, m.group(0)))
+
+    # Free-form PII keyed off field names (opt-in).
+    if pii:
+        spans.extend(_pii_spans(text))
 
     # Sort by start, then by longest match first so we keep the widest span
     # when two detectors fire on the same region.
@@ -142,6 +233,11 @@ def main(argv: list[str] | None = None) -> int:
         help="also flag IPv4 addresses (off by default — too noisy)",
     )
     p.add_argument(
+        "--pii",
+        action="store_true",
+        help="also redact free-form PII (names, addresses, DOB) keyed off field names",
+    )
+    p.add_argument(
         "--only",
         metavar="t1,t2",
         help="restrict to a comma-separated list of detector types",
@@ -175,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.ip:
             types.add("ipv4")
 
-    redacted, findings = frisk(raw, types)
+    redacted, findings = frisk(raw, types, pii=args.pii)
 
     # Custom tag format: rebuild from the (already correct) spans.
     if args.tag != "[REDACTED:{type}]":

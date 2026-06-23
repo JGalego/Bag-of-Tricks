@@ -88,3 +88,81 @@ def test_check_exits_0_when_clean(tmp_path):
     p = tmp_path / "ctx.txt"
     p.write_text("all clear here\n", encoding="utf-8")
     assert main(["--check", str(p)]) == 0
+
+
+# --- shaped PII detectors -------------------------------------------------
+
+def test_detect_ssn():
+    out, findings = frisk("ssn 123-45-6789 ok")
+    assert "123-45-6789" not in out
+    assert any(f["type"] == "ssn" for f in findings)
+
+
+def test_detect_phone():
+    out, findings = frisk("call (555) 123-4567 today")
+    assert "(555) 123-4567" not in out
+    assert any(f["type"] == "phone" for f in findings)
+
+
+def test_credit_card_luhn_valid_is_redacted():
+    out, findings = frisk("card 4111 1111 1111 1111 end")
+    assert "4111 1111 1111 1111" not in out
+    assert any(f["type"] == "credit_card" for f in findings)
+
+
+def test_credit_card_luhn_invalid_is_left_alone():
+    # Same length/shape but fails the checksum -> not a card, don't redact.
+    text = "num 4111 1111 1111 1112 end"
+    out, findings = frisk(text)
+    assert not any(f["type"] == "credit_card" for f in findings)
+
+
+# --- free-form PII via keys (opt-in) --------------------------------------
+
+def test_pii_off_by_default():
+    text = '{"name": "Ada Lovelace", "street": "12 Engine Way"}'
+    out, findings = frisk(text)
+    assert "Ada Lovelace" in out
+    assert "12 Engine Way" in out
+    assert findings == []
+
+
+def test_pii_redacts_json_name_and_address():
+    text = '{"name": "Ada Lovelace", "street": "12 Engine Way", "country": "UK"}'
+    out, findings = frisk(text, pii=True)
+    assert "Ada Lovelace" not in out
+    assert "12 Engine Way" not in out
+    assert '"name": "[REDACTED:name]"' in out
+    assert '"street": "[REDACTED:address]"' in out
+    # country is not PII-keyed -> left intact, JSON still valid.
+    assert '"country": "UK"' in out
+    assert {f["type"] for f in findings} == {"name", "address"}
+
+
+def test_pii_normalizes_key_variants():
+    out, _ = frisk('{"firstName": "Ada", "Postal_Code": "EC1A"}', pii=True)
+    assert "Ada" not in out and "EC1A" not in out
+
+
+def test_pii_redacts_key_value_lines():
+    text = "fullName = Ada Lovelace\ncity: London\n"
+    out, findings = frisk(text, pii=True)
+    assert "Ada Lovelace" not in out
+    assert "London" not in out
+    assert {f["type"] for f in findings} == {"name", "address"}
+
+
+def test_pii_offsets_round_trip():
+    text = '{"name": "Ada Lovelace"}'
+    _, findings = frisk(text, pii=True)
+    for f in findings:
+        assert text[f["start"] : f["end"]] == f["match"]
+
+
+def test_pii_flag_via_main(tmp_path, capsys):
+    p = tmp_path / "c.json"
+    p.write_text('{"name": "Ada Lovelace"}\n', encoding="utf-8")
+    assert main(["--pii", str(p)]) == 0
+    out = capsys.readouterr().out
+    assert "Ada Lovelace" not in out
+    assert "[REDACTED:name]" in out

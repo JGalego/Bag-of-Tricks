@@ -16,14 +16,21 @@ or a third party as something that might be carrying. Check it at the door.
    snippet to an LLM or any external service, scan it for credentials and PII.
 2. **Know the shapes.** Watch for AWS keys (`AKIA…`), OpenAI keys (`sk-…`,
    `sk-proj-…`), GitHub tokens (`ghp_…`), Slack tokens (`xox…`), `Bearer …`
-   tokens, JWTs (`eyJ….….…`), PEM private-key blocks, and email addresses.
-3. **Redact, don't relay.** Replace a found secret with a tag like
+   tokens, JWTs (`eyJ….….…`), PEM private-key blocks, email addresses, US SSNs
+   (`123-45-6789`), credit-card numbers (Luhn-checked), and phone numbers.
+3. **Free-form PII has no shape — read the key.** A person's name, street, or
+   birthday won't match a regex. In structured text the tell is the *field
+   name*: a value under `name`, `street`, `city`, `dob`, `phone` is almost
+   certainly carrying. Redact the value, keep the key. This is opt-in (`--pii`
+   in the tool) because keying off names over-redacts plain config — turn it on
+   for anything that looks like customer/user/profile data.
+4. **Redact, don't relay.** Replace a found secret with a tag like
    `[REDACTED:aws_key]`. Keep the structure so the model still understands the
    text; lose the secret.
-4. **Never echo the secret.** When you report a finding, show its *type* and a
+5. **Never echo the secret.** When you report a finding, show its *type* and a
    masked preview (first few chars + `…`) — never the full value, not even to
    confirm it.
-5. **When in doubt, stop and ask.** A false positive is cheap; a leaked
+6. **When in doubt, stop and ask.** A false positive is cheap; a leaked
    production key is not. Flag it and check before forwarding.
 
 ## What frisk is NOT
@@ -43,5 +50,6 @@ or a third party as something that might be carrying. Check it at the door.
 ## Companion tool
 
 `frisk.py` in this folder applies these checks mechanically. Pipe any text
-through it to redact secrets (`frisk.py`), gate a pipeline (`frisk.py --check`,
-exits 1 on a hit), or list findings with masked previews (`frisk.py --report`).
+through it to redact secrets (`frisk.py`), add free-form PII for customer/user
+data (`frisk.py --pii`), gate a pipeline (`frisk.py --check`, exits 1 on a hit),
+or list findings with masked previews (`frisk.py --report`).
