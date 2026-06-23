@@ -26,6 +26,7 @@ install +tricks="all":
       if [ -f "$PWD/$t/SKILL.md" ]; then
         mkdir -p "$skills/$t"
         ln -sf "$PWD/$t/SKILL.md" "$skills/$t/SKILL.md"
+        ln -sf "$PWD/$t/$t.py" "$skills/$t/$t.py"
         echo "  + skill -> $skills/$t/SKILL.md"
       fi
     done
@@ -40,7 +41,7 @@ uninstall +tricks="all":
     want="{{tricks}}"
     [ "$want" = "all" ] && want="{{_all}}"
     for t in $want; do
-      rm -f "$bin/$t" "$skills/$t/SKILL.md"
+      rm -f "$bin/$t" "$skills/$t/SKILL.md" "$skills/$t/$t.py"
       rmdir "$skills/$t" 2>/dev/null || true
       echo "uninstalled $t"
     done
