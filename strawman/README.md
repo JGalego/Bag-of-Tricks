@@ -76,6 +76,12 @@ gate a deploy on it:
 
 A clean run (everything `none`/`low`) exits `0`.
 
+## skill
+
+strawman ships a [skill](https://docs.claude.com/en/docs/agents-and-tools/skills)
+(`SKILL.md`); `just install strawman` puts it in `~/.claude/skills/strawman/` so
+Claude Code can run a pre-ship red-team when you ask it to harden a prompt.
+
 ## honest notes
 
 - It's a model judging a model — treat findings as **strong leads, not proofs**.

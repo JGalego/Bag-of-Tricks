@@ -75,6 +75,12 @@ oops  Explain this stack trace and the most likely root cause:\n\n{input}
 
 User aliases extend and override the built-ins.
 
+## skill
+
+steno ships a [skill](https://docs.claude.com/en/docs/agents-and-tools/skills)
+(`SKILL.md`); `just install steno` puts it in `~/.claude/skills/steno/` so Claude
+Code knows the alias vocabulary when you reference one.
+
 ## composes with the bag
 
 steno writes the prompt; the other tricks shape it:

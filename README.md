@@ -43,16 +43,16 @@ Each folder has its own README with the full pitch and usage.
 
 ## install
 
-Recipes run with [`just`](https://github.com/casey/just). Installing a trick
-symlinks its CLI into `~/.local/bin` and, for tricks that ship one, its
-[skill](https://docs.claude.com/en/docs/agents-and-tools/skills) into
-`~/.claude/skills/`:
+Recipes run with [`just`](https://github.com/casey/just). Every trick is both a
+CLI and a [skill](https://docs.claude.com/en/docs/agents-and-tools/skills);
+installing one symlinks its CLI into `~/.local/bin` and its `SKILL.md` into
+`~/.claude/skills/` (so Claude Code can discover it):
 
 ```bash
-just install              # install every trick
-just install deadpan      # just one
+just install                   # install every trick
+just install deadpan           # just one
 just install snitch strawman   # or a few
-just uninstall            # remove them all (or name them)
+just uninstall                 # remove them all (or name them)
 ```
 
 Then run them by name (make sure `~/.local/bin` is on your `PATH`):

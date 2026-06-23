@@ -109,6 +109,13 @@ python3 -c "import json;[print(json.loads(l)['body'].get('model')) for l in open
 
 Each line is `{"path": ..., "method": ..., "body": {…the full request…}}`.
 
+## skill
+
+snitch also ships a [skill](https://docs.claude.com/en/docs/agents-and-tools/skills)
+(`SKILL.md`); `just install snitch` drops it in `~/.claude/skills/snitch/` so
+Claude Code reaches for snitch when you ask it to debug what an agent actually
+sent.
+
 ## honest limits
 
 - It binds to `127.0.0.1` only — both the proxy and the UI are **local debug
