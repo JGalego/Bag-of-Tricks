@@ -77,19 +77,44 @@ _DEFAULT_TYPES = frozenset(_DETECTORS) - {"ipv4"}
 # opt-in (like ipv4): keying off field names over-redacts plain config, so the
 # caller asks for it explicitly.
 _PII_KEYS: dict[str, str] = {
-    "name": "name", "fullname": "name", "firstname": "name", "lastname": "name",
-    "middlename": "name", "givenname": "name", "surname": "name",
-    "familyname": "name", "displayname": "name",
-    "street": "address", "streetaddress": "address", "address": "address",
-    "addressline1": "address", "addressline2": "address", "addr": "address",
-    "city": "address", "state": "address", "zip": "address",
-    "zipcode": "address", "postalcode": "address", "postcode": "address",
-    "dob": "dob", "dateofbirth": "dob", "birthdate": "dob", "birthday": "dob",
-    "phone": "phone", "phonenumber": "phone", "mobile": "phone",
-    "telephone": "phone", "tel": "phone", "cell": "phone",
-    "ssn": "ssn", "socialsecuritynumber": "ssn", "nationalid": "ssn",
-    "passport": "passport", "passportnumber": "passport",
-    "license": "license", "driverslicense": "license",
+    "name": "name",
+    "fullname": "name",
+    "firstname": "name",
+    "lastname": "name",
+    "middlename": "name",
+    "givenname": "name",
+    "surname": "name",
+    "familyname": "name",
+    "displayname": "name",
+    "street": "address",
+    "streetaddress": "address",
+    "address": "address",
+    "addressline1": "address",
+    "addressline2": "address",
+    "addr": "address",
+    "city": "address",
+    "state": "address",
+    "zip": "address",
+    "zipcode": "address",
+    "postalcode": "address",
+    "postcode": "address",
+    "dob": "dob",
+    "dateofbirth": "dob",
+    "birthdate": "dob",
+    "birthday": "dob",
+    "phone": "phone",
+    "phonenumber": "phone",
+    "mobile": "phone",
+    "telephone": "phone",
+    "tel": "phone",
+    "cell": "phone",
+    "ssn": "ssn",
+    "socialsecuritynumber": "ssn",
+    "nationalid": "ssn",
+    "passport": "passport",
+    "passportnumber": "passport",
+    "license": "license",
+    "driverslicense": "license",
 }
 
 # A JSON string pair: "key": "value" — redacts the value's inner span only, so
@@ -136,6 +161,7 @@ def _pii_spans(text: str) -> list[tuple[int, int, str, str]]:
                 spans.append((m.start("val"), m.end("val"), label, val))
     return spans
 
+
 # How long a preview to show before the ellipsis — enough to recognize the
 # shape, not enough to leak the secret.
 _PREVIEW = 4
@@ -147,9 +173,7 @@ def _mask(match: str) -> str:
     return f"{head}…" if len(match) > _PREVIEW else "…"
 
 
-def frisk(
-    text: str, types: set[str] | None = None, pii: bool = False
-) -> tuple[str, list[dict]]:
+def frisk(text: str, types: set[str] | None = None, pii: bool = False) -> tuple[str, list[dict]]:
     """Pat ``text`` down for secrets/PII.
 
     Returns ``(redacted_text, findings)`` where each finding is

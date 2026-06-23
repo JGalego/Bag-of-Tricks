@@ -92,6 +92,7 @@ def test_check_exits_0_when_clean(tmp_path):
 
 # --- shaped PII detectors -------------------------------------------------
 
+
 def test_detect_ssn():
     out, findings = frisk("ssn 123-45-6789 ok")
     assert "123-45-6789" not in out
@@ -118,6 +119,7 @@ def test_credit_card_luhn_invalid_is_left_alone():
 
 
 # --- free-form PII via keys (opt-in) --------------------------------------
+
 
 def test_pii_off_by_default():
     text = '{"name": "Ada Lovelace", "street": "12 Engine Way"}'
