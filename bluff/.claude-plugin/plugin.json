@@ -1,0 +1,10 @@
+{
+  "name": "bluff",
+  "description": "call its bluff. — extract the URLs and citations from an answer and check they actually resolve, catching hallucinated links. Ships a skill and a `bluff` CLI.",
+  "version": "0.1.0",
+  "author": { "name": "João Galego" },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/bluff",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "hallucination", "citations", "urls", "cli"]
+}

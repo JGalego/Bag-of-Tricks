@@ -1,0 +1,10 @@
+{
+  "name": "tell",
+  "description": "every AI has a tell. — flag the giveaways in AI-written prose (delve, tapestry, \"it's not just X, it's Y\", em-dash overuse, in conclusion). Ships a skill and a `tell` CLI.",
+  "version": "0.1.0",
+  "author": { "name": "João Galego" },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/tell",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "writing", "detection", "style", "cli"]
+}

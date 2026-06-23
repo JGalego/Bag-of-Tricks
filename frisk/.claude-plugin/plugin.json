@@ -1,0 +1,10 @@
+{
+  "name": "frisk",
+  "description": "pat it down before it ships. — scan text headed to the model for secrets and PII (API keys, tokens, private keys, emails) and redact or flag them. Ships a skill and a `frisk` CLI.",
+  "version": "0.1.0",
+  "author": { "name": "João Galego" },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/frisk",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "security", "secrets", "pii", "redaction", "cli"]
+}

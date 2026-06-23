@@ -39,6 +39,41 @@
       "description": "two letters, and the prompt writes itself. — short aliases that expand into full prompts for common dev tasks.",
       "category": "productivity",
       "tags": ["llm", "prompts", "aliases", "productivity", "cli"]
+    },
+    {
+      "name": "salvage",
+      "source": "./salvage",
+      "description": "rip the JSON out of the chatter. — extract and repair valid JSON buried in chatty LLM output (fences, trailing commas, Python literals).",
+      "category": "output",
+      "tags": ["llm", "json", "parsing", "cli", "structured-output"]
+    },
+    {
+      "name": "frisk",
+      "source": "./frisk",
+      "description": "pat it down before it ships. — scan text headed to the model for secrets and PII (API keys, tokens, private keys, emails) and redact or flag them.",
+      "category": "security",
+      "tags": ["llm", "security", "secrets", "pii", "redaction"]
+    },
+    {
+      "name": "tell",
+      "source": "./tell",
+      "description": "every AI has a tell. — flag the giveaways in AI-written prose (delve, tapestry, \"it's not just X, it's Y\", em-dash overuse).",
+      "category": "output",
+      "tags": ["llm", "writing", "detection", "style", "cli"]
+    },
+    {
+      "name": "tollbooth",
+      "source": "./tollbooth",
+      "description": "know the bill before the bill. — estimate token count and dollar cost of a prompt across models before you send it.",
+      "category": "productivity",
+      "tags": ["llm", "tokens", "cost", "pricing", "cli"]
+    },
+    {
+      "name": "bluff",
+      "source": "./bluff",
+      "description": "call its bluff. — extract the URLs and citations from an answer and check they actually resolve, catching hallucinated links.",
+      "category": "debugging",
+      "tags": ["llm", "hallucination", "citations", "urls", "cli"]
     }
   ]
 }

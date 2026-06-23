@@ -1,7 +1,7 @@
 # bag of tricks — task runner (https://github.com/casey/just)
 # `just` with no args lists recipes.
 
-_all := "deadpan snitch strawman interrobang steno"
+_all := "deadpan snitch strawman interrobang steno salvage frisk tell tollbooth bluff"
 
 # list available recipes
 default:

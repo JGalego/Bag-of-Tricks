@@ -1,0 +1,10 @@
+{
+  "name": "tollbooth",
+  "description": "know the bill before the bill. — estimate token count and dollar cost of a prompt across models before you send it. Ships a skill and a `tollbooth` CLI.",
+  "version": "0.1.0",
+  "author": { "name": "João Galego" },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/tollbooth",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "tokens", "cost", "pricing", "cli"]
+}

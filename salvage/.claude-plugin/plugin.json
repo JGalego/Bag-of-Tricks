@@ -1,0 +1,10 @@
+{
+  "name": "salvage",
+  "description": "rip the JSON out of the chatter. — extract and repair valid JSON buried in chatty LLM output. Ships a skill and a `salvage` CLI filter.",
+  "version": "0.1.0",
+  "author": { "name": "João Galego" },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/salvage",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "json", "parsing", "cli", "structured-output"]
+}
