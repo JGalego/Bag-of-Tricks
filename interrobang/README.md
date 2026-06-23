@@ -10,6 +10,11 @@ would change what it does, fire **one** sharp clarifying question first.
 The whole brand is the glyph: ‽ (U+203D, the interrobang — a question and an
 exclamation in one mark). Ask, decisively.
 
+> Install with [`just`](https://github.com/casey/just): `just install interrobang`
+> symlinks the `interrobang` CLI onto your `PATH` and drops the
+> [skill](https://docs.claude.com/en/docs/agents-and-tools/skills) into
+> `~/.claude/skills/`. Or run `python3 interrobang.py` from this folder.
+
 ## two modes, zero dependencies
 
 ### 1. install the reflex

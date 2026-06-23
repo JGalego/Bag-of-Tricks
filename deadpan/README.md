@@ -43,11 +43,25 @@ Default is `full`.
 Code fences (```` ``` ````, `~~~`) and inline `` `code` `` pass through byte for
 byte. deadpan trims the prose *around* your snippets, never the snippets.
 
+## install
+
+From the repo root, [`just`](https://github.com/casey/just) symlinks the CLI onto
+your `PATH` and the [skill](https://docs.claude.com/en/docs/agents-and-tools/skills)
+into `~/.claude/skills/`:
+
+```bash
+just install deadpan
+echo "Sure! 42 🎉" | deadpan
+```
+
+Or run it in place: `python3 deadpan.py`.
+
 ## the skill
 
-Copy `SKILL.md` into your agent's skills directory (for Claude Code:
-`~/.claude/skills/deadpan/SKILL.md`). The model reads it when terse, direct
-output is wanted and stops opening with "Certainly!".
+`SKILL.md` is a [Claude Code / agent skill](https://docs.claude.com/en/docs/agents-and-tools/skills).
+`just install deadpan` drops it in `~/.claude/skills/deadpan/`, or copy it there
+yourself. The model reads it when terse, direct output is wanted and stops
+opening with "Certainly!".
 
 ## use them together
 

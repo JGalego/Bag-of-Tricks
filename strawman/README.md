@@ -21,6 +21,17 @@ badly, the exact input that broke it, and how to harden it.
 | `extraction` | leaking the system prompt, tools, or hidden reasoning |
 | `ambiguity` | legitimate-but-underspecified requests the prompt doesn't cover (gaps, not attackers) |
 
+## install
+
+```bash
+just install strawman          # symlinks `strawman` onto your PATH
+pip install anthropic          # needed for a real run (not for --dry-run)
+```
+
+[`just`](https://github.com/casey/just) ·
+[anthropic SDK](https://github.com/anthropics/anthropic-sdk-python). Or just run
+`python3 strawman.py` from this folder.
+
 ## usage
 
 ```bash

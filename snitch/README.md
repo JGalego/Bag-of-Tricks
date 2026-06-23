@@ -14,6 +14,10 @@ streams the response straight back. Your agent doesn't know it's there. You do.
 Zero dependencies. Standard-library Python 3.9+. Provider-agnostic — it forwards
 to whatever upstream you point it at and never looks at your credentials.
 
+> Install with [`just`](https://github.com/casey/just): `just install snitch`
+> puts `snitch` on your `PATH`. Or run `python3 snitch.py` straight from this
+> folder — the examples below do the latter.
+
 ## use it in 3 steps
 
 ```bash

@@ -22,8 +22,9 @@ prompts, they're easy to break, and they guess when they should ask. Each trick
 takes exactly one of those on.
 
 Everything here is Python 3.9+, mostly standard library. `deadpan`, `snitch`, and
-`interrobang` have **zero dependencies**. `strawman` needs the `anthropic` SDK
-(and only to actually attack — it has a `--dry-run` that needs nothing).
+`interrobang` have **zero dependencies**. `strawman` needs the
+[`anthropic`](https://github.com/anthropics/anthropic-sdk-python) SDK (and only
+to actually attack — it has a `--dry-run` that needs nothing).
 
 ```bash
 git clone <this repo>
@@ -36,6 +37,29 @@ echo "Certainly! I'd be happy to help. Here is the answer: 42 🎉" | python3 de
 
 Each folder has its own README with the full pitch and usage.
 
+## install
+
+Recipes run with [`just`](https://github.com/casey/just). Installing a trick
+symlinks its CLI into `~/.local/bin` and, for tricks that ship one, its
+[skill](https://docs.claude.com/en/docs/agents-and-tools/skills) into
+`~/.claude/skills/`:
+
+```bash
+just install              # install all four tricks
+just install deadpan      # just one
+just install snitch strawman   # or a few
+just uninstall            # remove them all (or name them)
+```
+
+Then run them by name (make sure `~/.local/bin` is on your `PATH`):
+
+```bash
+echo "Sure! 42 🎉" | deadpan
+```
+
+Prefer not to install? Every trick also runs straight from its folder, e.g.
+`python3 deadpan/deadpan.py`.
+
 ## development
 
 Quality is enforced with [ruff](https://docs.astral.sh/ruff/) (lint + format)
@@ -44,15 +68,18 @@ beside it. Everything runs with no network and no API key (`strawman`'s tests
 stub the SDK).
 
 ```bash
-make install      # pip install -r requirements-dev.txt
-make check        # what CI runs: ruff check + ruff format --check + pytest
-make fmt          # auto-format
-make test         # just the tests
+just dev          # pip install -r requirements-dev.txt (ruff + pytest)
+just check        # what CI runs: ruff check + ruff format --check + pytest
+just fmt          # auto-format
+just test         # just the tests
+just              # list every recipe
 ```
 
-Or directly: `ruff check .`, `ruff format .`, `pytest`.
+Or directly: `ruff check .`, `ruff format .`, `pytest`. A [Makefile](Makefile)
+mirrors the dev recipes (`make check`, `make dev`, …) if you'd rather use
+[make](https://www.gnu.org/software/make/).
 
-CI runs `make check` on every push and PR across Python 3.9–3.12
+CI runs the same checks on every push and PR across Python 3.9–3.12
 (see [.github/workflows/ci.yml](.github/workflows/ci.yml)).
 
 ## license
