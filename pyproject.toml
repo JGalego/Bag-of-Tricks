@@ -1,7 +1,7 @@
 [project]
 name = "bag-of-tricks"
 version = "0.1.0"
-description = "a small bag of clever LLM hacks — deadpan, snitch, strawman, interrobang"
+description = "a small bag of clever, single-idea LLM hacks"
 requires-python = ">=3.9"
 
 [tool.ruff]

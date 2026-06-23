@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" role="img" aria-label="bag of tricks">
+  <title>bag of tricks</title>
+
+  <!-- white background -->
+  <rect width="800" height="800" fill="#ffffff"/>
+
+  <!-- the trick, conjured from the hat: interrobang + sparkles -->
+  <g fill="#111111">
+    <text x="600" y="285" font-family="Georgia, 'Times New Roman', serif"
+          font-size="170" text-anchor="middle">&#8253;</text>
+    <!-- 4-point sparkles -->
+    <path d="M575 110 C575 134 551 158 527 158 C551 158 575 182 575 206 C575 182 599 158 623 158 C599 158 575 134 575 110 Z"/>
+    <path d="M678 205 C678 221 662 237 646 237 C662 237 678 253 678 269 C678 253 694 237 710 237 C694 237 678 221 678 205 Z"/>
+    <path d="M512 250 C512 262 500 274 488 274 C500 274 512 286 512 298 C512 286 524 274 536 274 C524 274 512 262 512 250 Z"/>
+  </g>
+
+  <!-- top hat (the bag of tricks) -->
+  <g>
+    <!-- brim -->
+    <ellipse cx="400" cy="500" rx="215" ry="44" fill="#111111"/>
+    <!-- crown, flared slightly at the top -->
+    <path d="M285 470 L268 300 L532 300 L515 470 Z" fill="#111111"/>
+    <!-- hat band -->
+    <path d="M295 452 L505 452 L501 488 L299 488 Z" fill="#ffffff"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="400" y="668" text-anchor="middle"
+        font-family="'SF Mono', ui-monospace, 'Menlo', 'Consolas', monospace"
+        font-size="62" font-weight="600" letter-spacing="1" fill="#111111">bag of tricks</text>
+</svg>

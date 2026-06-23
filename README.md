@@ -1,10 +1,12 @@
-# bag of tricks
+<p align="center">
+  <img src="assets/logo.png" alt="bag of tricks" width="300">
+</p>
 
 > a small bag of clever hacks for people who work with LLMs all day.
 
-Four single-idea tools. Each lives in its own folder, does one thing, installs in
-seconds, and has a catchphrase it has to live up to. Inspired in *tone* (not
-substance) by [caveman](https://github.com/juliusbrussee/caveman) and
+A growing set of single-idea tools. Each lives in its own folder, does one thing,
+installs in seconds, and has a catchphrase it has to live up to. Inspired in
+*tone* (not substance) by [caveman](https://github.com/juliusbrussee/caveman) and
 [headroom](https://github.com/headroomlabs-ai/headroom).
 
 | trick | catchphrase | what it does |
@@ -18,11 +20,12 @@ substance) by [caveman](https://github.com/juliusbrussee/caveman) and
 
 Caveman cuts *tokens*. Headroom compresses *context*. This bag is about everything
 *else* that's annoying when you build with LLMs: they're chatty, they hide their
-prompts, they're easy to break, and they guess when they should ask. Each trick
-takes exactly one of those on.
+prompts, they're easy to break, they guess when they should ask — and whatever
+the next annoyance turns out to be. Each trick takes on exactly one of them. New
+tricks get added as the irritations pile up.
 
-Everything here is Python 3.9+, mostly standard library. `deadpan`, `snitch`, and
-`interrobang` have **zero dependencies**. `strawman` needs the
+Everything here is Python 3.9+, mostly standard library — most tricks have
+**zero dependencies**. The exception so far is `strawman`, which needs the
 [`anthropic`](https://github.com/anthropics/anthropic-sdk-python) SDK (and only
 to actually attack — it has a `--dry-run` that needs nothing).
 
@@ -45,7 +48,7 @@ symlinks its CLI into `~/.local/bin` and, for tricks that ship one, its
 `~/.claude/skills/`:
 
 ```bash
-just install              # install all four tricks
+just install              # install every trick
 just install deadpan      # just one
 just install snitch strawman   # or a few
 just uninstall            # remove them all (or name them)
