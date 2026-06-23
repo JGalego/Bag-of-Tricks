@@ -3,6 +3,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/JGalego/Bag-of-Tricks/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/JGalego/Bag-of-Tricks/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="license: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-blue.svg">
   <a href="https://github.com/astral-sh/ruff"><img alt="code style: ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
@@ -57,7 +58,7 @@ install step.
 
 ```bash
 # add the marketplace, then install the tricks you want
-/plugin marketplace add <you>/bag-of-tricks
+/plugin marketplace add JGalego/Bag-of-Tricks
 /plugin install snitch@bag-of-tricks
 /plugin install deadpan@bag-of-tricks
 ```

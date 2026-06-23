@@ -6,5 +6,7 @@
     "name": "João Galego"
   },
   "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/steno",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
   "keywords": ["llm", "prompts", "aliases", "productivity", "cli"]
 }

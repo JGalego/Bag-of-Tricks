@@ -6,5 +6,7 @@
     "name": "João Galego"
   },
   "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/snitch",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
   "keywords": ["llm", "proxy", "observability", "debugging", "agents"]
 }
