@@ -53,6 +53,13 @@ waiting to be shipped. Make it produce its alibi.
 > **alibi:** ✓ the height claim is corroborated by the source — ✗ the painting
 > claim has no support in the source; do not present it as grounded.
 
+## Output
+
+Deliver the verdict, not a write-up of how you reached it. Don't narrate running
+`alibi.py` — the tool card already shows it. List the flagged claims with their
+SUPPORTED/UNSUPPORTED call, lead with the unsupported ones (those are what the
+reader acts on), and stop. No preamble, no closing summary of what it all means.
+
 ## Companion tool
 
 `alibi.py` in this folder does this mechanically. Feed it the answer plus one or

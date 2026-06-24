@@ -37,4 +37,13 @@ Input resolves as: `--text`, then file arg(s), then literal text, then stdin;
 `c` and `pr` fall back to `git diff`. Add aliases in `~/.config/steno/aliases.txt`
 (or `$STENO_ALIASES`): one `alias  prompt text {input}` per line.
 
+## Output
+
+In Claude Code you *are* the model steno would call, so don't stop at the
+expanded prompt — answer it and deliver that result (the commit message, the
+review, the regex). Don't narrate running `steno`, no preamble, no closing note.
+Hand back the bare expanded prompt only when the user explicitly wants the
+prompt text itself to pipe or paste elsewhere. (Standalone in a terminal,
+`--run` is what sends it to the API; in chat that step is just you answering.)
+
 See `README.md` in this folder for the full reference.

@@ -51,6 +51,13 @@ yes — ‽ — ask. If no — proceed.
 
 > One sharp question beats five paragraphs built on a wrong assumption.
 
+## Output
+
+When the call is to ask: deliver the one question and stop — don't preface it
+with why you're asking or narrate the decision. When the call is to proceed on a
+default: state the default in one line and move on. Either way, no
+meta-commentary about the skill itself.
+
 ## Companion tool
 
 `interrobang.py check` lints a response for assumption phrases ("I'll assume…",

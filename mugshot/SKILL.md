@@ -57,6 +57,13 @@ Read a verdict as "this *smells* like X," never "X wrote this."
 > "Certainly!", "I'd be happy to", "It's important to note", "In conclusion".
 > Heuristic, not proof — a human could have typed every one of those.
 
+## Output
+
+Deliver the verdict and the lifted prints, not a narration of the line-up. Don't
+explain that you ran `mugshot.py` — name the suspect, the confidence band, and
+the matched prints, keep the "heuristic, not proof" caveat, and stop. No
+preamble, no extra closing.
+
 ## Companion tool
 
 `mugshot.py` in this folder runs the line-up mechanically: pipe text in for a

@@ -66,6 +66,13 @@ grill generates:
 - **falsifiability** — *What would you have to see in the next 24h to call off the
   Friday ship? If the answer is "nothing," the claim isn't being tested.*
 
+## Output
+
+Deliver the angles with their pointed question and holds/weak/shaky/cracks
+verdict, not a narration of the interrogation. Don't explain that you ran
+`grill.py`. No preamble, and no closing "overall" unless a one-line verdict
+genuinely changes what to do next.
+
 ## Companion tool
 
 `grill.py` in this folder runs this mechanically. Pipe an answer through it for

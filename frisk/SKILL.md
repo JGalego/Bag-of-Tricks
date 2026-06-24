@@ -47,6 +47,12 @@ or a third party as something that might be carrying. Check it at the door.
 > **After:** Use this for auth: `[REDACTED:aws_key]`, and email
 > `[REDACTED:email]` if it breaks.
 
+## Output
+
+Deliver the redacted text (or the findings with masked previews), not a report
+on the scan. Don't narrate running `frisk.py`. If it's clean, say so in one
+line; never echo a full secret. No preamble, no closing summary.
+
 ## Companion tool
 
 `frisk.py` in this folder applies these checks mechanically. Pipe any text

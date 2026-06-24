@@ -41,4 +41,10 @@ Otherwise run it from the bag-of-tricks repo: `python3 strawman/strawman.py`.
 - Treat findings as strong leads, not proofs (a model judging a model); read the
   fixes before applying them.
 
+## Output
+
+Deliver the per-lens findings — cracked?, severity, example attack, fix — not a
+narration of the red-teaming. Don't explain that you ran `strawman.py`. Lead with
+the worst severities. No preamble, no closing recap beyond the findings.
+
 See `README.md` in this folder for the full reference.

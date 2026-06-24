@@ -38,6 +38,12 @@ the one valid JSON value inside it.
 >
 > **After:** `{"name": "Ada", "active": true}`
 
+## Output
+
+Emit only the JSON — that's the whole point. Don't narrate running `salvage.py`,
+don't fence it, don't wrap it in "here's the recovered JSON." If nothing parses,
+say so in one line. Nothing before the JSON, nothing after.
+
 ## Companion tool
 
 `salvage.py` in this folder does exactly this mechanically — pipe any chatty

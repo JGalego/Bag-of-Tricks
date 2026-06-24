@@ -76,6 +76,13 @@ TCP is a protocol that makes sure data arrives in order and intact.
 3/3 answered.
 ```
 
+## Output
+
+Deliver the lineup itself — each answer under its model id, as laid out — not a
+narration of running it. Don't explain that you ran `lineup.py`. If asked to
+pick, give the pick in one line; otherwise let the answers stand. No preamble, no
+closing synthesis the user didn't ask for.
+
 ## Companion tool
 
 `lineup.py` in this folder runs the fan-out mechanically. Pipe or pass a prompt

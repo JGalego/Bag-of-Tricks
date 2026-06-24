@@ -31,6 +31,12 @@ sentence isn't mangled.
 > https://docs.example.com/v2. The second citation does not exist; do not ship
 > it as a source.
 
+## Output
+
+Deliver the link check, not a description of running it. Don't narrate running
+`bluff.py` — the tool card already shows it. List each URL with its ✓/✗ and
+status, surface the bluffs first, and stop. No preamble, no closing paragraph.
+
 ## Companion tool
 
 `bluff.py` in this folder does this mechanically. Pipe an answer in and it

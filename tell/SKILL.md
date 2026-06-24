@@ -38,6 +38,12 @@ presence.
 > "plays a crucial role", "ever-evolving", two em-dashes — score ~95/100.
 > Rewrite from scratch; nothing here survives.
 
+## Output
+
+Deliver the diagnosis — the tells and the score — not a narration of running
+`tell.py`. Don't explain the tool; list what was found and stop. No preamble, no
+closing "consider rewriting" unless the user asked what to do about it.
+
 ## Companion tool
 
 `tell.py` in this folder scores text mechanically (0-100) and lists every tell

@@ -43,4 +43,11 @@ export ANTHROPIC_BASE_URL=http://localhost:8787   # or OPENAI_BASE_URL, etc.
 It captures the **request** in full and records the response status (it doesn't
 buffer response bodies). It binds to `127.0.0.1` only — a local debug tool.
 
+## Output
+
+If you run snitch or report what it captured, deliver the captured request
+plainly — don't narrate the proxy mechanics or wrap the bytes in analysis the
+user didn't ask for, and point them at the web UI for the rest. No preamble, no
+closing summary.
+
 See `README.md` in this folder for the full reference.

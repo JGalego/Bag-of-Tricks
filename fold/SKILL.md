@@ -51,6 +51,13 @@ as a tell. A confident wrong answer costs more than an honest "I'm not sure."
 The facts didn't change. The stance did — from a bluff to a calibrated claim
 the reader can actually trust.
 
+## Output
+
+Deliver the folded text, not a report on folding it. Don't narrate running
+`fold.py` — the tool card already shows it. Give the calibrated rewrite (or, if
+that's what was asked, the flagged tells) and stop. No preamble explaining what
+fold does, no closing tally of how many tells it caught.
+
 ## Companion tool
 
 `fold.py` in this folder applies these checks mechanically. Pipe a draft

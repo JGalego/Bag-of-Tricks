@@ -41,6 +41,12 @@ When this skill is active, drop the performance and deliver the substance.
 >
 > **After:** The simplest approach is a hash map.
 
+## Output
+
+This skill *is* the output contract — apply its own rules to how you hand back
+the result. Don't narrate running `deadpan.py`; emit the deadpanned text and
+nothing else. No "here's the cleaned version," no closing note.
+
 ## Companion tool
 
 `deadpan.py` in this folder applies these rules mechanically to existing text

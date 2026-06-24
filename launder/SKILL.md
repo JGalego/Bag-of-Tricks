@@ -55,6 +55,12 @@ prose and names the overused words; launder scrubs the bytes underneath it.
 > **After:** `he said "hi"` — straight quotes, the invisible character gone,
 > nothing else changed.
 
+## Output
+
+Deliver the laundered text, not a report on laundering it. Don't narrate running
+`launder.py`. If the text was already clean, say so in one line; if asked what
+was found, give the category list plainly. No preamble, no closing note.
+
 ## Companion tool
 
 `launder.py` in this folder applies these scrubbers mechanically. Pipe text

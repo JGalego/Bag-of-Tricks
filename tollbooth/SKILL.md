@@ -35,6 +35,12 @@ gpt-4o               $0.0000    $0.0060    $0.0060
 gpt-4o-mini          $0.0000    $0.0004    $0.0004
 ```
 
+## Output
+
+Deliver the token count and the per-model cost table, not a narration of running
+`tollbooth.py`. Don't explain the tool; show the numbers and stop. No preamble,
+no closing take on which model to pick unless asked.
+
 ## Companion tool
 
 `tollbooth.py` in this folder does the counting and the arithmetic. Pipe a
