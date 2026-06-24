@@ -52,6 +52,16 @@ echo "Certainly! I'd be happy to help. Here is the answer: 42 🎉" | python3 de
 
 Each folder has its own README with the full pitch and usage.
 
+## prerequisites
+
+Everything here runs on **Python 3.9+** — that's the only hard requirement, and most tricks need nothing more (many are pure standard library). Check with `python3 --version`. This matters in every mode: even as a Claude Code plugin, the CLIs run on the Bash tool's `PATH`, so Python has to be available in that environment too.
+
+A few tricks reach further, and each one tells you when:
+
+- **Calling a model** — `strawman`, `grill`, `lineup`, and `steno --run` use the [`anthropic`](https://github.com/anthropics/anthropic-sdk-python) SDK and an `ANTHROPIC_API_KEY` (`pip install anthropic`). Each has a `--dry-run` / no-key path so you can try it without either.
+- **`tollbooth`** *optionally* uses [`tiktoken`](https://github.com/openai/tiktoken) for exact token counts (`pip install tiktoken`); without it, it falls back to a built-in heuristic.
+- The standalone install below needs [`just`](https://github.com/casey/just). The plugin and `python3 <trick>/<trick>.py` paths don't.
+
 ## install standalone
 
 Prefer plain CLIs and skills without the plugin system? Recipes run with [`just`](https://github.com/casey/just). Installing a trick symlinks its CLI into `~/.local/bin` and its `SKILL.md` into `~/.claude/skills/`:
@@ -89,6 +99,15 @@ claude --plugin-dir ./snitch
 ```
 
 Plugin skills are namespaced (`/deadpan:deadpan`, `/strawman:strawman`, …), and each plugin's CLI (`snitch`, `steno`, …) is runnable while the plugin is enabled.
+
+## windows
+
+The tricks are pure Python and run anywhere; only the plumbing assumes a Unix
+shell.
+
+- **As a Claude Code plugin** — works as-is. Claude Code's Bash tool runs in a bash environment (Git Bash / WSL) on Windows too, so the `bin/` wrappers and the `python3 …` calls in each `SKILL.md` resolve fine.
+- **Standalone** — the `just install` recipe symlinks into `~/.local/bin`, so run it from **WSL or Git Bash** rather than PowerShell/cmd. Or skip install and run a trick directly: `python3 deadpan\deadpan.py`.
+- If `python3` isn't found, use `python` or the `py` launcher (`py -3`).
 
 ## development
 
