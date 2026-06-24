@@ -61,9 +61,14 @@ uninstall +tricks="all":
       echo "uninstalled $t"
     done
 
-# install dev/CI tooling (ruff + pytest)
+# install dev/CI tooling (ruff + pytest + logo generation)
 dev:
     pip install -r requirements-dev.txt
+
+# (re)generate logos from source: banners, wheel, network + animation, logo
+# TARGET ∈ {all banners wheel network animation logo} (default: all)
+assets +target="all":
+    python3 assets/generate.py {{target}}
 
 # run the linter
 lint:

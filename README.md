@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/bag-of-tricks-wheel.png" alt="bag of tricks" width="500">
+  <img src="assets/bag-of-tricks-network.gif" alt="bag of tricks" width="500">
 </p>
 
 <p align="center">

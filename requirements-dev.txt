@@ -2,3 +2,7 @@
 # (strawman needs `anthropic` to run for real, but its tests stub it out).
 ruff==0.9.6
 pytest>=8,<9
+# logo generation (assets/generate.py): SVG->PNG and GIF assembly. Optional —
+# only needed to regenerate the logos, not to run the tricks or tests.
+cairosvg>=2.7
+Pillow>=10

@@ -1,6 +1,6 @@
 # The justfile is the primary runner; this Makefile mirrors its dev recipes.
 # To install the tricks themselves, use: just install [TRICK...]
-.PHONY: help dev lint fmt fmt-check test check
+.PHONY: help dev lint fmt fmt-check test check assets
 
 help:  ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -20,5 +20,8 @@ fmt-check:  ## verify formatting without changing files
 
 test:  ## run the test suite
 	pytest
+
+assets:  ## (re)generate all logos from source (banners, wheel, network, gif)
+	python3 assets/generate.py
 
 check: lint fmt-check test  ## everything CI runs, locally
