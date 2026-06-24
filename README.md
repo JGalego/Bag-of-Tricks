@@ -180,6 +180,12 @@ Or directly: `ruff check .`, `ruff format .`, `pytest`. A [Makefile](Makefile) m
 
 CI runs the same checks on every push and PR across Python 3.9–3.12 (see [.github/workflows/ci.yml](.github/workflows/ci.yml)).
 
+## inspirational quote
+
+> "I'm not excited by what AI can do. **I'm excited by what I can do.**"
+>
+> -- Kelsey Hightower
+
 ## license
 
 MIT — see [LICENSE](LICENSE). Use them, fork them, rename them, put them in your own bag.
