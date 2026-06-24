@@ -8,7 +8,7 @@
   <a href="LICENSE"><img alt="license: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-blue.svg">
   <a href="https://github.com/astral-sh/ruff"><img alt="code style: ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
-  <img alt="tricks: 17" src="https://img.shields.io/badge/tricks-17-111111.svg">
+  <img alt="tricks: 18" src="https://img.shields.io/badge/tricks-18-111111.svg">
 </p>
 
 > a small bag of clever hacks for people who work with LLMs all day.
@@ -34,6 +34,49 @@ A growing set of single-idea tools. Each lives in its own folder, does one thing
 | [`grill`](grill/) | *put it in the hot seat.* | adversarially interrogates an answer with probing follow-ups before you trust it. |
 | [`lineup`](lineup/) | *same prompt, the whole lineup.* | runs one prompt across several models and lays the answers side by side. |
 | [`mugshot`](mugshot/) | *we know your prints.* | guesses which model wrote a passage from its stylistic fingerprints — a parlor trick, not proof. |
+| [`combo`](combo/) | *pull the whole routine.* | chains tricks into one pipeline so the output of one flows into the next — the bag's composition layer. |
+
+## composing tricks
+
+Every trick is a `stdin->stdout` program, so the composition layer is just the
+**Unix pipe** — tricks chain with `|` out of the box:
+
+```bash
+# redact secrets, wash the typographic prints, strip the personality
+cat reply.md | frisk | launder | deadpan
+```
+
+[`combo`](combo/) makes that a single call (and a [skill](combo/SKILL.md), so
+Claude Code can run a composed routine in one shot rather than invoking each
+trick separately):
+
+```bash
+combo "frisk --pii | launder | deadpan" < reply.md
+combo --list          # every trick, tagged by shape
+```
+
+A trick's **shape** tells you where it can sit in a routine:
+
+| shape        | emits                  | where it sits     | examples                                       |
+|--------------|------------------------|-------------------|------------------------------------------------|
+| **filter**   | transformed text       | the middle        | `frisk` `launder` `salvage` `mole` `deadpan`   |
+| **analyzer** | a report / verdict     | the end (a sink)  | `tell` `fold` `alibi` `mugshot` `bluff` `tollbooth` |
+| **gate**     | nothing (an exit code) | first or last     | a `--check` / `--max` *mode*, not a trick      |
+
+Rule of thumb: any number of **filters**, optionally ended by **one analyzer**,
+optionally fronted or closed by a **gate** (`--check` / `--max`, exposed by
+`frisk`, `launder`, `mole`, `fold`, `alibi`, `tell`, …) that aborts the routine:
+
+```bash
+# refuse to continue if a secret is present, then wash the rest
+combo "frisk --check | launder" < draft.md && echo "shipped clean"
+```
+
+> **Is there a *native* way for Claude Code to pipe skills?** No — skills are
+> invoked one at a time; there's no `skill1 | skill2` syntax. The native options
+> are to invoke skills in sequence (model-driven) or write a meta-skill that
+> orchestrates them. For this bag the composition substrate is the shell pipe,
+> and `combo` is the meta-skill that wraps it.
 
 ## the philosophy
 

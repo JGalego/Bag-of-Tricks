@@ -187,6 +187,16 @@ ICONS = {
         'stroke-width="6"/>'
         '<circle cx="50" cy="50" r="11" fill="#fff"/>'
     ),
+    "combo": _BADGE
+    + (
+        # three stages chained by flow chevrons — a pipeline
+        '<circle cx="28" cy="50" r="7" fill="#fff"/>'
+        '<circle cx="72" cy="50" r="7" fill="#fff"/>'
+        '<path d="M40 40 L50 50 L40 60" fill="none" stroke="#fff" stroke-width="6" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+        '<path d="M52 40 L62 50 L52 60" fill="none" stroke="#fff" stroke-width="6" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
 }
 
 

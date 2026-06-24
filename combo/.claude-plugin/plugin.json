@@ -1,0 +1,10 @@
+{
+  "name": "combo",
+  "description": "pull the whole routine. — chain tricks into one pipeline so the output of one flows into the next: `combo \"frisk | launder | deadpan\"`. The bag's composition layer, built on the Unix pipe. Ships a skill and a `combo` CLI.",
+  "version": "0.1.0",
+  "author": { "name": "João Galego" },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/combo",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "pipeline", "compose", "cli", "unix", "chain"]
+}

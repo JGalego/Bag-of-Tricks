@@ -123,6 +123,13 @@
       "description": "we know your prints. — guess which model wrote a passage from its stylistic fingerprints (a heuristic, not proof).",
       "category": "output",
       "tags": ["llm", "stylometry", "detection", "attribution", "cli"]
+    },
+    {
+      "name": "combo",
+      "source": "./combo",
+      "description": "pull the whole routine. — chain tricks into one pipeline so the output of one flows into the next: `combo \"frisk | launder | deadpan\"`.",
+      "category": "workflow",
+      "tags": ["llm", "pipeline", "compose", "chain", "cli"]
     }
   ]
 }
