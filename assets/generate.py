@@ -10,7 +10,8 @@ Targets (positional, default ``all``):
 
   banners    one ``<trick>/logo.png`` per trick   (1000x240)
   wheel      ``assets/bag-of-tricks-wheel.png``    (1650x1650, hub + spokes)
-  network    ``assets/bag-of-tricks-network.png``  (1650x1650, random graph)
+  network    ``assets/bag-of-tricks-network.png``  (1650x1650, category clusters;
+             --no-category-nodes for the original random graph)
   animation  ``assets/bag-of-tricks-network.gif``  (looping graph, nodes float)
   logo       ``assets/logo.png`` from logo.svg     (800x800)
 
@@ -47,6 +48,14 @@ INK = "#111111"
 PAPER = "#ffffff"
 GREY = "#8a8a8a"
 EDGE = "#d8d8d8"
+
+# dark "dev" theme for the interactive web page
+WEB_BG = "#0d1117"
+WEB_FG = "#e6edf3"
+
+# repo coordinates baked into the page (install commands, download + repo links)
+REPO_SLUG = "JGalego/Bag-of-Tricks"
+REPO_REF = "main"
 
 # Names whose wordmark is set in monospace rather than the bold sans default —
 # preserves the typographic split in the hand-made originals.
@@ -188,11 +197,17 @@ ICONS = {
 
 def load_tricks():
     """[(name, catchphrase)] in marketplace order — the single source of truth."""
+    return [(t["name"], t["catchphrase"]) for t in load_tricks_full()]
+
+
+def load_tricks_full():
+    """[{name, catchphrase, description}] — splits the marketplace "catchphrase.
+    — long description." convention into its two halves."""
     plugins = json.load(open(MARKETPLACE, encoding="utf-8"))["plugins"]
     out = []
     for p in plugins:
-        catchphrase = p["description"].split(" — ", 1)[0].strip()
-        out.append((p["name"], catchphrase))
+        cap, _, desc = p["description"].partition(" — ")
+        out.append({"name": p["name"], "catchphrase": cap.strip(), "description": desc.strip()})
     return out
 
 
@@ -364,7 +379,7 @@ def network_layout(tricks, seed):
     return names, [tuple(p) for p in pos], phase, edges, hub_links
 
 
-def network_body(names, pos, edges, hub_links):
+def network_body(names, pos, edges, hub_links, rings=False):
     """Render the graph body for one set of node positions (still or one frame)."""
     c = NET_W / 2
     body = ""
@@ -387,9 +402,16 @@ def network_body(names, pos, edges, hub_links):
     tx, ty = c - 400 * scale, c - 400 * scale
     body += f'<g transform="translate({tx:.1f},{ty:.1f}) scale({scale})">{hat_inner()}</g>'
 
+    pal, cat_of = (category_palette(), category_of()) if rings else (None, None)
+    r = NET_ICON / 2 + 8
     for name, (x, y) in zip(names, pos):
-        body += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{NET_ICON / 2 + 8:.1f}" fill="{PAPER}"/>'
+        body += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{PAPER}"/>'
         body += icon_g(name, x, y, NET_ICON)
+        if rings:                                            # category colour, no category node
+            body += (
+                f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="none" '
+                f'stroke="{pal[cat_of[name]]}" stroke-width="4"/>'
+            )
         body += (
             f'<text x="{x:.1f}" y="{y + NET_ICON / 2 + 38:.1f}" '
             f'font-family="{MONOFONT}" font-size="30" font-weight="600" '
@@ -398,12 +420,12 @@ def network_body(names, pos, edges, hub_links):
     return body
 
 
-def network_svg(tricks, seed):
+def network_svg(tricks, seed, rings=False):
     names, pos, _phase, edges, hub_links = network_layout(tricks, seed)
-    return svg_doc(NET_W, NET_W, network_body(names, pos, edges, hub_links))
+    return svg_doc(NET_W, NET_W, network_body(names, pos, edges, hub_links, rings))
 
 
-def network_frames(tricks, seed, frames, amp=15.0):
+def network_frames(tricks, seed, frames, amp=15.0, rings=False):
     """Yield one SVG per animation frame. Each node floats on a small looping
     orbit around its base position (sin/cos over a full turn → seamless loop)."""
     names, pos, phase, edges, hub_links = network_layout(tricks, seed)
@@ -414,11 +436,637 @@ def network_frames(tricks, seed, frames, amp=15.0):
             dx = amp * math.sin(t + px) + 0.4 * amp * math.sin(2 * t + py)
             dy = amp * math.cos(t + py) + 0.4 * amp * math.cos(2 * t + px)
             moved.append((x + dx, y + dy))
-        yield svg_doc(NET_W, NET_W, network_body(names, moved, edges, hub_links))
+        yield svg_doc(NET_W, NET_W, network_body(names, moved, edges, hub_links, rings))
 
 
 def esc(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+# --------------------------------------------------------------------------- #
+# Category-cluster graph: each category is its own node and its tricks clump
+# around it (a "force cluster"), with one colour per category. Drives the
+# default network/animation graph (opt out with --no-category-nodes) and the page.
+# --------------------------------------------------------------------------- #
+
+# one colour per category, assigned in marketplace order (cycles if needed)
+CAT_COLORS = ["#3b82f6", "#22a55a", "#e5534b", "#a371f7", "#d4a017", "#e36fb0", "#1f9aa8"]
+
+# short blurb per category (marketplace categories are bare strings); a category
+# without an entry falls back to a trick count
+CAT_DESC = {
+    "output": "shape and clean up what the model emits",
+    "debugging": "see and fix what your agent is actually doing",
+    "security": "probe prompts and context for attacks and leaks",
+    "workflow": "change how the model decides and when it acts",
+    "productivity": "everyday LLM dev chores, done faster",
+}
+
+
+def categories_in_order():
+    plugins = json.load(open(MARKETPLACE, encoding="utf-8"))["plugins"]
+    cats = []
+    for p in plugins:
+        c = p.get("category")
+        if c and c not in cats:
+            cats.append(c)
+    return cats
+
+
+def category_of():
+    plugins = json.load(open(MARKETPLACE, encoding="utf-8"))["plugins"]
+    return {p["name"]: p.get("category") for p in plugins}
+
+
+def category_palette():
+    return {c: CAT_COLORS[k % len(CAT_COLORS)] for k, c in enumerate(categories_in_order())}
+
+
+def cluster_layout(names, seed, W, H):
+    """Place category nodes around the frame and clump each category's tricks
+    around it, then relax so nothing overlaps. Deterministic for a given seed.
+    Returns (cpos {cat: [x, y]}, tpos {trick: [x, y]}, members, cats)."""
+    rng = random.Random(seed * 13 + 5)
+    cats = categories_in_order()
+    cat_of = category_of()
+    cx, cy = W / 2, H / 2
+    k = len(cats)
+    rx, ry = W * 0.33, H * 0.33
+    cpos = {}
+    for idx, c in enumerate(cats):
+        a = -math.pi / 2 + 2 * math.pi * idx / k
+        cpos[c] = [cx + rx * math.cos(a), cy + ry * math.sin(a)]
+    members = {c: [n for n in names if cat_of[n] == c] for c in cats}
+
+    # how far tricks must sit from their hub: clear the (text) pill + the icon
+    t_min = {c: pill_half_w(c) + NET_ICON / 2 + 26 for c in cats}
+    t_max = {c: t_min[c] + 78 + len(members[c]) * 20 for c in cats}
+
+    tpos = {}
+    for c in cats:
+        mem = members[c]
+        m = max(len(mem), 1)
+        outward = math.atan2(cpos[c][1] - cy, cpos[c][0] - cx)   # point away from centre
+        spread = math.pi * 1.15
+        for i, n in enumerate(mem):
+            frac = (i + 0.5) / m - 0.5                           # -0.5 .. 0.5 across the fan
+            a = outward + frac * spread + rng.uniform(-0.12, 0.12)
+            r = (t_min[c] + t_max[c]) / 2 * (0.85 + 0.3 * rng.random())
+            tpos[n] = [cpos[c][0] + r * math.cos(a), cpos[c][1] + r * math.sin(a)]
+
+    min_tt = NET_ICON + 26          # trick-to-trick clearance
+    keepout = 380                   # central disc reserved for the (big) hat
+    margin = 90
+    keys = list(tpos)
+    for _ in range(420):
+        for ii in range(len(keys)):
+            for jj in range(ii + 1, len(keys)):
+                a, b = tpos[keys[ii]], tpos[keys[jj]]
+                dx, dy = b[0] - a[0], b[1] - a[1]
+                d = math.hypot(dx, dy) or 0.01
+                if d < min_tt:
+                    f = (min_tt - d) / 2
+                    ux, uy = dx / d, dy / d
+                    a[0] -= ux * f
+                    a[1] -= uy * f
+                    b[0] += ux * f
+                    b[1] += uy * f
+        for n in tpos:
+            p, c = tpos[n], cat_of[n]
+            ccx, ccy = cpos[c]
+            dx, dy = p[0] - ccx, p[1] - ccy
+            d = math.hypot(dx, dy) or 0.01
+            if d < t_min[c]:
+                p[0], p[1] = ccx + dx / d * t_min[c], ccy + dy / d * t_min[c]
+            elif d > t_max[c]:
+                p[0], p[1] = ccx + dx / d * t_max[c], ccy + dy / d * t_max[c]
+            for c2 in cats:                                   # keep off other clusters' pills
+                if c2 == c:
+                    continue
+                ox, oy = cpos[c2]
+                ex, ey = p[0] - ox, p[1] - oy
+                ed = math.hypot(ex, ey) or 0.01
+                clear = pill_half_w(c2) + NET_ICON / 2 + 20
+                if ed < clear:
+                    p[0], p[1] = ox + ex / ed * clear, oy + ey / ed * clear
+            gx, gy = p[0] - cx, p[1] - cy                      # keep clear of the central hat
+            gd = math.hypot(gx, gy) or 0.01
+            if gd < keepout:
+                p[0], p[1] = cx + gx / gd * keepout, cy + gy / gd * keepout
+            p[0] = max(margin, min(W - margin, p[0]))
+            p[1] = max(margin, min(H - margin, p[1]))
+    return cpos, tpos, members, cats
+
+
+PILL_FS = 36            # category pill font size (px in the 1650 box)
+
+
+def pill_half_w(name):
+    return (len(name) * PILL_FS * 0.6 + 44) / 2
+
+
+def cluster_body(cpos, tpos, members, cats, rings=True):
+    """Render the cluster graph (light theme, for the PNG/GIF). `tpos` may hold
+    jittered positions for an animation frame. `rings` draws the per-category
+    coloured ring on each trick (optional; see also --no-rings)."""
+    pal = category_palette()
+    c0 = NET_W / 2
+    body = ""
+    for c in cats:                                           # category → central hub links
+        col, (ccx, ccy) = pal[c], cpos[c]
+        body += (
+            f'<line x1="{c0:.1f}" y1="{c0:.1f}" x2="{ccx:.1f}" y2="{ccy:.1f}" '
+            f'stroke="{col}" stroke-width="6" opacity="0.55"/>'
+        )
+    for c in cats:                                           # coloured trick→category links
+        col, (ccx, ccy) = pal[c], cpos[c]
+        for n in members[c]:
+            x, y = tpos[n]
+            body += (
+                f'<line x1="{x:.1f}" y1="{y:.1f}" x2="{ccx:.1f}" y2="{ccy:.1f}" '
+                f'stroke="{col}" stroke-width="3.5" opacity="0.4"/>'
+            )
+    # central bag-of-tricks logo (big), on top of the spokes
+    hs = 0.85
+    body += f'<g transform="translate({c0 - 400 * hs:.0f},{c0 - 400 * hs:.0f}) scale({hs})">{hat_inner()}</g>'
+    for c in cats:                                           # trick icons (optionally ringed)
+        col = pal[c]
+        for n in members[c]:
+            x, y = tpos[n]
+            r = NET_ICON / 2 + 11
+            body += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{PAPER}"/>'
+            body += icon_g(n, x, y, NET_ICON)
+            if rings:
+                body += (
+                    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="none" '
+                    f'stroke="{col}" stroke-width="4"/>'
+                )
+            body += (
+                f'<text x="{x:.1f}" y="{y + r + 30:.1f}" font-family="{MONOFONT}" '
+                f'font-size="28" font-weight="600" fill="{INK}" text-anchor="middle">{n}</text>'
+            )
+    for c in cats:                                          # category pill hubs, on top
+        x, y = cpos[c]
+        col = pal[c]
+        hw, hh = pill_half_w(c), 34
+        body += (
+            f'<rect x="{x - hw:.1f}" y="{y - hh:.1f}" width="{2 * hw:.1f}" height="{2 * hh}" '
+            f'rx="{hh}" fill="{col}"/>'
+            f'<text x="{x:.1f}" y="{y + PILL_FS * 0.34:.1f}" font-family="{MONOFONT}" '
+            f'font-size="{PILL_FS}" font-weight="700" fill="{PAPER}" '
+            f'text-anchor="middle">{c}</text>'
+        )
+    return body
+
+
+def cluster_svg(tricks, seed, rings=True):
+    names = [t[0] for t in tricks]
+    cpos, tpos, members, cats = cluster_layout(names, seed, NET_W, NET_W)
+    return svg_doc(NET_W, NET_W, cluster_body(cpos, tpos, members, cats, rings))
+
+
+def cluster_frames(tricks, seed, frames, amp=14.0, rings=True):
+    names = [t[0] for t in tricks]
+    cpos, tpos, members, cats = cluster_layout(names, seed, NET_W, NET_W)
+    rng = random.Random(seed * 3 + 9)
+    phase = {n: (rng.uniform(0, 2 * math.pi), rng.uniform(0, 2 * math.pi)) for n in names}
+    for f in range(frames):
+        t = 2 * math.pi * f / frames
+        moved = {}
+        for n, (px, py) in phase.items():
+            bx, by = tpos[n]
+            moved[n] = (
+                bx + amp * math.sin(t + px) + 0.4 * amp * math.sin(2 * t + py),
+                by + amp * math.cos(t + py) + 0.4 * amp * math.cos(2 * t + px),
+            )
+        yield svg_doc(NET_W, NET_W, cluster_body(cpos, moved, members, cats, rings))
+
+
+# --------------------------------------------------------------------------- #
+# Interactive web page (dark "dev" theme). Self-contained HTML: the same icons
+# (colour-inverted for dark) and the trick data baked in, animated with a tiny
+# vanilla-JS force sim. Nodes drift freely; hovering one freezes the graph and
+# shows a terminal-style card with the catchphrase + full description.
+# --------------------------------------------------------------------------- #
+
+def invert(markup):
+    """Swap the black/white palette so an icon reads on a dark background:
+    the disc becomes light, the glyph becomes the page background colour."""
+    return (
+        markup.replace("#111111", "\0L").replace("#ffffff", "\0D").replace("#fff", "\0D")
+        .replace("\0L", WEB_FG).replace("\0D", WEB_BG)
+    )
+
+
+WEB_PILL_FS = 18         # category pill font size on the page (px)
+
+
+def web_pill_half(name):
+    return (len(name) * WEB_PILL_FS * 0.6 + 36) / 2
+
+
+def web_html(tricks, seed):
+    """Self-contained dark page: the category-cluster graph (central bag-of-tricks
+    → category pills → tricks), laid out client-side so it fills the viewport and
+    re-flows on resize. Tricks jitter around fixed homes; hovering freezes the
+    graph and shows a terminal-style card. One colour per category throughout."""
+    names = [t[0] for t in tricks]
+    full = {t["name"]: t for t in load_tricks_full()}
+    cat_of = category_of()
+    cats = categories_in_order()
+    pal = category_palette()
+    catidx = {c: k for k, c in enumerate(cats)}
+    icon = 60
+
+    nodes_svg = ""
+    for idx, name in enumerate(names):
+        col = pal[cat_of[name]]
+        glyph = invert(ICONS[name])
+        r = icon / 2 + 9
+        nodes_svg += (
+            f'<g class="node" id="node{idx}" transform="translate(0,0)">'
+            f'<circle r="{r:.0f}" fill="{WEB_BG}"/>'
+            f'<g transform="translate({-icon / 2},{-icon / 2}) scale({icon / 100:.3f})">{glyph}</g>'
+            f'<circle class="ring" r="{r:.0f}" fill="none" stroke="{col}" stroke-width="3"/>'
+            f'<circle class="hit" r="{r + 5:.0f}"/>'
+            f'<text y="{r + 22:.0f}">{esc(name)}</text>'
+            f"</g>"
+        )
+    tedges_svg = "".join(
+        f'<line class="te" id="te{idx}" stroke="{pal[cat_of[n]]}"/>'
+        for idx, n in enumerate(names)
+    )
+    cedges_svg = "".join(
+        f'<line class="ce" id="ce{k}" stroke="{pal[c]}"/>' for k, c in enumerate(cats)
+    )
+    pills_svg = ""
+    for k, c in enumerate(cats):
+        hw = web_pill_half(c)
+        pills_svg += (
+            f'<g class="cat" id="cat{k}" transform="translate(0,0)">'
+            f'<rect x="{-hw:.0f}" y="-24" width="{2 * hw:.0f}" height="48" rx="24" fill="{pal[c]}"/>'
+            f'<text y="6">{esc(c)}</text>'
+            f'<rect class="hit" x="{-hw:.0f}" y="-24" width="{2 * hw:.0f}" height="48" rx="24"/>'
+            f"</g>"
+        )
+    hat = f'<g class="hat" id="hat">{invert(hat_inner())}</g>'
+
+    tdata = [
+        {"name": n, "cat": cat_of[n], "color": pal[cat_of[n]],
+         "catchphrase": full[n]["catchphrase"], "description": full[n]["description"]}
+        for n in names
+    ]
+    cdata = []
+    for c in cats:
+        mem = [n for n in names if cat_of[n] == c]
+        blurb = CAT_DESC.get(c, f"{len(mem)} tricks")
+        cdata.append({"name": c, "color": pal[c], "blurb": blurb, "members": mem})
+    catof = [catidx[cat_of[n]] for n in names]
+
+    return (
+        WEB_TEMPLATE
+        .replace("__BG__", WEB_BG)
+        .replace("__FG__", WEB_FG)
+        .replace("__HAT__", hat)
+        .replace("__CEDGES_SVG__", cedges_svg)
+        .replace("__TEDGES_SVG__", tedges_svg)
+        .replace("__NODES_SVG__", nodes_svg)
+        .replace("__PILLS_SVG__", pills_svg)
+        .replace("__TRICKS__", json.dumps(tdata))
+        .replace("__CATS__", json.dumps(cdata))
+        .replace("__CATOF__", json.dumps(catof))
+        .replace("__SEED__", str(seed))
+        .replace("__REPO__", REPO_SLUG)
+        .replace("__REF__", REPO_REF)
+    )
+
+
+WEB_TEMPLATE = r"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bag of tricks — network</title>
+<style>
+  :root{
+    --bg:__BG__; --fg:__FG__; --panel:#161b22; --line:#30363d;
+    --muted:#8b949e; --accent:#58a6ff; --accent2:#3fb950;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,'DejaVu Sans Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;width:100%;overflow:hidden;
+    background:var(--bg);color:var(--fg);font-family:var(--mono)}
+  #wrap{position:fixed;top:0;left:0;width:100vw;height:100vh;overflow:hidden;
+    display:flex;flex-direction:column}
+  header{padding:12px 20px;border-bottom:1px solid var(--line);display:flex;
+    gap:12px 18px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  header .hl{display:flex;flex-direction:column;gap:2px;min-width:0}
+  header .t{font-weight:700;letter-spacing:.5px}
+  header .s{color:var(--muted);font-size:13px}
+  header .hr{display:flex;align-items:center;gap:10px}
+  .ghl{display:inline-flex;align-items:center;gap:7px;color:var(--fg);text-decoration:none;
+    border:1px solid var(--line);border-radius:8px;padding:6px 11px;font-size:13px;background:#161b22}
+  .ghl:hover{border-color:var(--muted)}
+  .ghl .stars{color:var(--muted)}
+  .ghl .stars:not(:empty)::before{content:"★ ";color:var(--accent2)}
+  .inst{position:relative}
+  .ibtn{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--bg);
+    background:var(--fg);border:0;border-radius:8px;padding:7px 12px;cursor:pointer}
+  .ibtn .car{opacity:.7}
+  .menu{position:absolute;right:0;top:calc(100% + 8px);width:300px;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:8px;z-index:20;display:none;
+    box-shadow:0 14px 40px rgba(0,0,0,.6)}
+  .menu.open{display:block}
+  .menu .mh{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.6px;padding:6px 8px}
+  .menu .cmd{display:block;width:100%;text-align:left;background:transparent;border:0;
+    border-radius:7px;padding:8px;cursor:pointer;color:var(--fg)}
+  .menu .cmd:hover{background:#1b2230}
+  .menu .cmd b{display:block;font-size:13px;margin-bottom:2px}
+  .menu .cmd code{display:block;color:var(--muted);font-size:11.5px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .menu .cmd.copied b::after{content:" ✓ copied";color:var(--accent2)}
+  @media (max-width:560px){header .s{display:none} .ghl span:not(.stars){display:none} .menu{width:270px}}
+  #stage{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0}
+  .grid{position:absolute;inset:0;pointer-events:none;opacity:.22;
+    background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:28px 28px}
+  #net{width:100%;height:100%;display:block;touch-action:none}
+  .ce{stroke-width:5;opacity:.5;pointer-events:none;transition:opacity .15s}
+  .te{stroke-width:2.2;opacity:.36;pointer-events:none;transition:opacity .15s}
+  .ce.lit,.te.lit{opacity:.95}
+  .hat{pointer-events:none}
+  .node{cursor:pointer}
+  .node > text{fill:var(--muted);font-size:14px;font-weight:600;text-anchor:middle}
+  .node .ring{transition:stroke-width .12s}
+  .hit{fill:transparent}
+  .node:hover > text,.node.active > text{fill:var(--fg)}
+  .node:hover .ring,.node.active .ring{stroke-width:5}
+  .cat{cursor:pointer}
+  .cat text{fill:var(--bg);font-size:18px;font-weight:700;text-anchor:middle;pointer-events:none}
+  .cat:hover,.cat.active{filter:brightness(1.15)}
+  body.frozen .te,body.frozen .ce{opacity:.12}
+  body.frozen .te.lit,body.frozen .ce.lit{opacity:.95}
+  #panel{position:absolute;max-width:330px;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:0;opacity:0;
+    transform:translateY(6px);transition:opacity .12s,transform .12s;
+    pointer-events:none;box-shadow:0 12px 34px rgba(0,0,0,.55);overflow:hidden}
+  #panel.show{opacity:1;transform:none}
+  #panel .bar{display:flex;align-items:center;gap:7px;padding:9px 13px;
+    border-bottom:1px solid var(--line);background:#1b2230}
+  #panel .bar i{width:11px;height:11px;border-radius:50%;background:#3a4150;display:inline-block}
+  #panel .bar i:nth-child(1){background:#ff5f56}
+  #panel .bar i:nth-child(2){background:#ffbd2e}
+  #panel .bar i:nth-child(3){background:#27c93f}
+  #panel .bar .f{margin-left:6px;color:var(--muted);font-size:12px}
+  #panel .body{padding:14px 16px}
+  #panel .h{color:var(--accent);font-weight:700;margin-bottom:8px}
+  #panel .h .p{color:var(--accent2)}
+  #panel .cap{font-style:italic;color:var(--fg);margin:0 0 10px;line-height:1.4}
+  #panel .desc{color:var(--muted);font-size:13px;line-height:1.55;margin:0}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <div class="hl">
+      <span class="t">bag of tricks</span>
+      <span class="s">single-idea LLM hacks — hover a trick to inspect · click to download</span>
+    </div>
+    <div class="hr">
+      <a class="ghl" href="https://github.com/__REPO__" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 012-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span>__REPO__</span><span class="stars" id="stars"></span>
+      </a>
+      <div class="inst">
+        <button class="ibtn" id="instbtn">&#9889; install <span class="car">&#9662;</span></button>
+        <div class="menu" id="instmenu">
+          <div class="mh">run the whole bag</div>
+          <button class="cmd" data-cmd="curl -fsSL https://raw.githubusercontent.com/__REPO__/__REF__/install.sh | bash">
+            <b>curl · every trick</b><code>curl -fsSL …/install.sh | bash</code></button>
+          <button class="cmd" data-cmd="/plugin marketplace add __REPO__">
+            <b>Claude Code plugin</b><code>/plugin marketplace add __REPO__</code></button>
+          <button class="cmd" data-cmd="git clone https://github.com/__REPO__ &amp;&amp; cd Bag-of-Tricks &amp;&amp; just install">
+            <b>clone &amp; just install</b><code>git clone … &amp;&amp; just install</code></button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div id="stage">
+    <div class="grid"></div>
+    <svg id="net" preserveAspectRatio="xMidYMid meet">
+      <g id="cedges">__CEDGES_SVG__</g>
+      <g id="tedges">__TEDGES_SVG__</g>
+      __HAT__
+      <g id="nodes">__NODES_SVG__</g>
+      <g id="cats">__PILLS_SVG__</g>
+    </svg>
+    <div id="panel">
+      <div class="bar"><i></i><i></i><i></i><span class="f" id="pfile"></span></div>
+      <div class="body">
+        <div class="h"><span class="p">&#10095;</span> <span id="pname"></span></div>
+        <p class="cap" id="pcap"></p>
+        <p class="desc" id="pdesc"></p>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const T = __TRICKS__, CATS = __CATS__, CATOF = __CATOF__, SEED = __SEED__;
+const REPO = "__REPO__", REF = "__REF__";
+const NODES = [...document.querySelectorAll('.node')];
+const PILLS = CATS.map((_, k) => document.getElementById('cat' + k));
+const teEls = T.map((_, i) => document.getElementById('te' + i));
+const ceEls = CATS.map((_, k) => document.getElementById('ce' + k));
+const hat = document.getElementById('hat');
+const svg = document.getElementById('net'), stage = document.getElementById('stage');
+const panel = document.getElementById('panel');
+const ICON = 60, PILLFS = 18, HAT_SC = .85, D = 1100;              // design units
+const WANDER = .03, SPRING = .012, DAMP = .9, MAXV = .32, ROAM = 15;  // gentle jiggle
+let paused = false, active = null, cpos = [], st = [];
+const rnd = () => Math.random();
+const pillHalf = (name) => (name.length * PILLFS * 0.6 + 36) / 2;
+
+// Category-cluster layout, computed once in a fixed DxD design space (mirrors
+// the Python generator): category hubs ring the centre, each category's tricks
+// fan outward, relaxed so nothing overlaps and all clear the central hat. The
+// SVG viewBox is then fitted to the result, so it scales to any window / phone.
+function layout() {
+  const cx = D / 2, cy = D / 2, K = CATS.length;
+  const rx = D * 0.30, ry = D * 0.33;
+  const cp = CATS.map((_, k) => { const a = -Math.PI / 2 + 2 * Math.PI * k / K;
+    return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)]; });
+  const mem = CATS.map(() => []); CATOF.forEach((ci, i) => mem[ci].push(i));
+  const tmin = CATS.map((c) => pillHalf(c.name) + ICON / 2 + 22);
+  const tmax = CATS.map((c, k) => tmin[k] + 64 + mem[k].length * 16);
+  let s = SEED * 13 + 5; const r = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const tp = new Array(T.length);
+  CATS.forEach((c, k) => {
+    const m = Math.max(mem[k].length, 1), out = Math.atan2(cp[k][1] - cy, cp[k][0] - cx);
+    mem[k].forEach((ti, i) => {
+      const a = out + ((i + 0.5) / m - 0.5) * Math.PI * 1.15 + (r() - .5) * 0.24;
+      const rr = (tmin[k] + tmax[k]) / 2 * (0.85 + 0.3 * r());
+      tp[ti] = [cp[k][0] + rr * Math.cos(a), cp[k][1] + rr * Math.sin(a)];
+    });
+  });
+  const MINTT = ICON + 22, MARG = 50, KEEP = 330;
+  for (let it = 0; it < 420; it++) {
+    for (let i = 0; i < tp.length; i++) for (let j = i + 1; j < tp.length; j++) {
+      let a = tp[i], b = tp[j], dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy) || .01;
+      if (d < MINTT) { const f = (MINTT - d) / 2; dx /= d; dy /= d;
+        a[0] -= dx * f; a[1] -= dy * f; b[0] += dx * f; b[1] += dy * f; }
+    }
+    for (let i = 0; i < tp.length; i++) {
+      const ci = CATOF[i], p = tp[i], ccx = cp[ci][0], ccy = cp[ci][1];
+      let dx = p[0] - ccx, dy = p[1] - ccy, d = Math.hypot(dx, dy) || .01;
+      if (d < tmin[ci]) { p[0] = ccx + dx / d * tmin[ci]; p[1] = ccy + dy / d * tmin[ci]; }
+      else if (d > tmax[ci]) { p[0] = ccx + dx / d * tmax[ci]; p[1] = ccy + dy / d * tmax[ci]; }
+      for (let k = 0; k < K; k++) { if (k === ci) continue;
+        let ex = p[0] - cp[k][0], ey = p[1] - cp[k][1], ed = Math.hypot(ex, ey) || .01;
+        const cl = pillHalf(CATS[k].name) + ICON / 2 + 16;
+        if (ed < cl) { p[0] = cp[k][0] + ex / ed * cl; p[1] = cp[k][1] + ey / ed * cl; } }
+      let gx = p[0] - cx, gy = p[1] - cy, gd = Math.hypot(gx, gy) || .01;
+      if (gd < KEEP) { p[0] = cx + gx / gd * KEEP; p[1] = cy + gy / gd * KEEP; }
+      p[0] = Math.max(MARG, Math.min(D - MARG, p[0])); p[1] = Math.max(MARG, Math.min(D - MARG, p[1]));
+    }
+  }
+  return {cp, tp};
+}
+
+function fitViewBox() {
+  let a = 1e9, b = 1e9, c = -1e9, e = -1e9;
+  const inc = (x, y) => { a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); e = Math.max(e, y); };
+  st.forEach((p, i) => {                                           // node + its centred label
+    const r = ICON / 2 + 12, lab = Math.max(r, T[i].name.length * 14 * 0.6 / 2);
+    inc(p.hx - lab, p.hy - r); inc(p.hx + lab, p.hy + r + 26);
+  });
+  CATS.forEach((cc, k) => { const hw = pillHalf(cc.name); inc(cpos[k][0] - hw, cpos[k][1] - 24); inc(cpos[k][0] + hw, cpos[k][1] + 24); });
+  const o = D / 2 - 400 * HAT_SC;                                   // hat art bounds (~185..710, 110..690)
+  inc(o + 185 * HAT_SC, o + 110 * HAT_SC); inc(o + 710 * HAT_SC, o + 690 * HAT_SC);
+  const pad = 26 + ROAM;
+  svg.setAttribute('viewBox', `${(a - pad).toFixed(0)} ${(b - pad).toFixed(0)} ${(c - a + 2 * pad).toFixed(0)} ${(e - b + 2 * pad).toFixed(0)}`);
+}
+
+function render() {
+  for (let i = 0; i < NODES.length; i++) {
+    NODES[i].setAttribute('transform', `translate(${st[i].x.toFixed(2)},${st[i].y.toFixed(2)})`);
+    const ci = CATOF[i], e = teEls[i];
+    e.setAttribute('x1', st[i].x.toFixed(1)); e.setAttribute('y1', st[i].y.toFixed(1));
+    e.setAttribute('x2', cpos[ci][0].toFixed(1)); e.setAttribute('y2', cpos[ci][1].toFixed(1));
+  }
+}
+
+function step() {
+  if (!paused) {
+    for (const a of st) {
+      a.vx += (rnd() - .5) * WANDER; a.vy += (rnd() - .5) * WANDER;   // random nudge
+      a.vx += (a.hx - a.x) * SPRING; a.vy += (a.hy - a.y) * SPRING;   // pull home
+      a.vx *= DAMP; a.vy *= DAMP;
+      const sp = Math.hypot(a.vx, a.vy);
+      if (sp > MAXV) { a.vx *= MAXV / sp; a.vy *= MAXV / sp; }
+      a.x += a.vx; a.y += a.vy;
+      const dx = a.x - a.hx, dy = a.y - a.hy, d = Math.hypot(dx, dy);
+      if (d > ROAM) { a.x = a.hx + dx / d * ROAM; a.y = a.hy + dy / d * ROAM; }  // never far
+    }
+  }
+  render();
+  requestAnimationFrame(step);
+}
+
+// build once (layout is fixed; the viewBox makes it responsive)
+const L = layout(); cpos = L.cp;
+const C = D / 2;
+hat.setAttribute('transform', `translate(${C - 400 * HAT_SC},${C - 400 * HAT_SC}) scale(${HAT_SC})`);
+PILLS.forEach((g, k) => g.setAttribute('transform', `translate(${cpos[k][0].toFixed(1)},${cpos[k][1].toFixed(1)})`));
+ceEls.forEach((e, k) => { e.setAttribute('x1', C); e.setAttribute('y1', C);
+  e.setAttribute('x2', cpos[k][0].toFixed(1)); e.setAttribute('y2', cpos[k][1].toFixed(1)); });
+st = L.tp.map(([hx, hy]) => ({x: hx, y: hy, hx, hy, vx: 0, vy: 0}));
+fitViewBox();
+requestAnimationFrame(step);
+
+function clearActive() {
+  teEls.forEach(e => e.classList.remove('lit'));
+  ceEls.forEach(e => e.classList.remove('lit'));
+  NODES.forEach(n => n.classList.remove('active'));
+  PILLS.forEach(p => p.classList.remove('active'));
+}
+function placePanel(wx, wy) {
+  const pt = new DOMPoint(wx, wy).matrixTransform(svg.getScreenCTM());
+  const r = stage.getBoundingClientRect(), pw = panel.offsetWidth, ph = panel.offsetHeight;
+  let px = pt.x - r.left + 34, py = pt.y - r.top - ph / 2;
+  if (px + pw > r.width - 12) px = pt.x - r.left - 34 - pw;
+  panel.style.left = Math.max(8, Math.min(px, r.width - pw - 8)) + 'px';
+  panel.style.top = Math.max(8, Math.min(py, r.height - ph - 8)) + 'px';
+}
+function openPanel(color, file, name, cap, desc) {
+  paused = true; document.body.classList.add('frozen');
+  const h = document.getElementById('pname').parentElement;
+  h.style.color = color;
+  document.getElementById('pname').textContent = name;
+  document.getElementById('pfile').textContent = file;
+  document.getElementById('pcap').textContent = cap;
+  document.getElementById('pdesc').textContent = desc;
+  panel.style.borderColor = color;
+  panel.classList.add('show');
+}
+function showTrick(i) {
+  clearActive(); active = i;
+  const t = T[i], ci = CATOF[i];
+  NODES[i].classList.add('active'); teEls[i].classList.add('lit');
+  ceEls[ci].classList.add('lit'); PILLS[ci].classList.add('active');
+  openPanel(t.color, t.name + '/SKILL.md', t.name, t.catchphrase,
+            t.description + '\n\ncategory: ' + t.cat);
+  placePanel(st[i].x, st[i].y);
+}
+function showCat(k) {
+  clearActive(); active = 'c' + k;
+  const c = CATS[k];
+  ceEls[k].classList.add('lit'); PILLS[k].classList.add('active');
+  CATOF.forEach((ci, i) => { if (ci === k) { teEls[i].classList.add('lit'); NODES[i].classList.add('active'); } });
+  openPanel(c.color, 'category · ' + c.members.length + ' tricks', c.name, c.blurb, c.members.join(' · '));
+  placePanel(cpos[k][0], cpos[k][1]);
+}
+function hide() {
+  paused = false; document.body.classList.remove('frozen');
+  clearActive(); active = null; panel.classList.remove('show');
+}
+// click a trick to download just that trick as a .zip (via download-directory)
+function download(name) {
+  const url = 'https://github.com/' + REPO + '/tree/' + REF + '/' + name;
+  window.open('https://download-directory.github.io/?url=' + encodeURIComponent(url), '_blank', 'noopener');
+}
+NODES.forEach((n, i) => {
+  n.addEventListener('mouseenter', () => showTrick(i));
+  n.addEventListener('mouseleave', hide);
+  n.addEventListener('focus', () => showTrick(i));
+  n.addEventListener('blur', hide);
+  n.addEventListener('click', () => download(T[i].name));
+  n.setAttribute('tabindex', '0');
+});
+PILLS.forEach((p, k) => {
+  p.addEventListener('mouseenter', () => showCat(k));
+  p.addEventListener('mouseleave', hide);
+});
+
+// install dropdown: toggle + copy-to-clipboard
+const instbtn = document.getElementById('instbtn'), instmenu = document.getElementById('instmenu');
+instbtn.addEventListener('click', (e) => { e.stopPropagation(); instmenu.classList.toggle('open'); });
+document.addEventListener('click', () => instmenu.classList.remove('open'));
+instmenu.addEventListener('click', (e) => e.stopPropagation());
+document.querySelectorAll('.cmd').forEach(b => b.addEventListener('click', () => {
+  navigator.clipboard && navigator.clipboard.writeText(b.dataset.cmd);
+  b.classList.add('copied'); setTimeout(() => b.classList.remove('copied'), 1400);
+}));
+
+// live star count (best-effort; silently skipped offline)
+fetch('https://api.github.com/repos/' + REPO).then(r => r.json()).then(d => {
+  if (d && typeof d.stargazers_count === 'number') {
+    const s = d.stargazers_count;
+    document.getElementById('stars').textContent = s >= 1000 ? (s / 1000).toFixed(1) + 'k' : s;
+  }
+}).catch(() => {});
+</script>
+</body>
+</html>
+"""
 
 
 # --------------------------------------------------------------------------- #
@@ -525,11 +1173,16 @@ def main(argv=None):
     ap.add_argument(
         "targets",
         nargs="*",
-        choices=["all", "banners", "wheel", "network", "animation", "logo"],
+        choices=["all", "banners", "wheel", "network", "animation", "web", "logo"],
         help="what to build (default: all)",
     )
     ap.add_argument("--renderer", choices=["auto", "cairosvg", "convert"], default="auto")
-    ap.add_argument("--seed", type=int, default=42, help="RNG seed for network edges")
+    ap.add_argument("--no-category-nodes", action="store_true",
+                    help="network/animation: drop the category clusters and fall back to the "
+                         "original randomly-connected graph")
+    ap.add_argument("--no-rings", action="store_true",
+                    help="clusters graph: drop the per-category coloured ring on each trick")
+    ap.add_argument("--seed", type=int, default=42, help="RNG seed for layout")
     ap.add_argument("--frames", type=int, default=48, help="animation frame count")
     ap.add_argument("--gif-size", type=int, default=720, help="animation pixel size")
     ap.add_argument("--fps", type=int, default=20, help="animation frames per second")
@@ -537,10 +1190,12 @@ def main(argv=None):
 
     targets = set(args.targets) or {"all"}
     if "all" in targets:
-        targets = {"banners", "wheel", "network", "animation", "logo"}
-    renderer = pick_renderer(args.renderer)
+        targets = {"banners", "wheel", "network", "animation", "web", "logo"}
     tricks = load_tricks()
-    print(f"renderer: {renderer}   tricks: {len(tricks)}")
+    # "web" is pure text; only reach for a rasteriser when a raster target is asked
+    raster = targets & {"banners", "wheel", "network", "animation", "logo"}
+    renderer = pick_renderer(args.renderer) if raster else None
+    print(f"renderer: {renderer or 'n/a'}   tricks: {len(tricks)}")
 
     if "banners" in targets:
         print("banners:")
@@ -557,24 +1212,31 @@ def main(argv=None):
         render(
             wheel_svg(tricks), os.path.join(ASSETS, "bag-of-tricks-wheel.png"), 1650, 1650, renderer
         )
+    # default: category clusters. --no-category-nodes reverts to the original
+    # randomly-connected network graph.
+    clusters, rings = not args.no_category_nodes, not args.no_rings
+    graph = "clusters" if clusters else "random"
     if "network" in targets:
-        print(f"network (seed={args.seed}):")
-        render(
-            network_svg(tricks, args.seed),
-            os.path.join(ASSETS, "bag-of-tricks-network.png"),
-            1650,
-            1650,
-            renderer,
-        )
+        print(f"network (graph={graph}, rings={rings}, seed={args.seed}):")
+        svg = cluster_svg(tricks, args.seed, rings) if clusters \
+            else network_svg(tricks, args.seed, rings)
+        render(svg, os.path.join(ASSETS, "bag-of-tricks-network.png"), 1650, 1650, renderer)
     if "animation" in targets:
-        print(f"animation (seed={args.seed}, {args.frames} frames):")
-        svgs = network_frames(tricks, args.seed, args.frames)
+        print(f"animation (graph={graph}, rings={rings}, seed={args.seed}, {args.frames} frames):")
+        svgs = cluster_frames(tricks, args.seed, args.frames, rings=rings) \
+            if clusters else network_frames(tricks, args.seed, args.frames, rings=rings)
         render_gif(
             svgs,
             os.path.join(ASSETS, "bag-of-tricks-network.gif"),
             args.gif_size,
             max(1, round(1000 / args.fps)),
         )
+    if "web" in targets:
+        print(f"web (seed={args.seed}):")
+        out = os.path.join(ROOT, "index.html")
+        with open(out, "w", encoding="utf-8") as f:
+            f.write(web_html(tricks, args.seed))
+        print(f"  wrote {os.path.relpath(out, ROOT)}")
     if "logo" in targets:
         print("logo:")
         render(

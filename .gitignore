@@ -10,5 +10,8 @@ venv/
 *.snitch.jsonl
 snitch-logs/
 
+# packaged trick zips (just pack)
+dist/
+
 # os
 .DS_Store

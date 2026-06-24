@@ -62,6 +62,18 @@ A few tricks reach further, and each one tells you when:
 - **`tollbooth`** *optionally* uses [`tiktoken`](https://github.com/openai/tiktoken) for exact token counts (`pip install tiktoken`); without it, it falls back to a built-in heuristic.
 - The standalone install below needs [`just`](https://github.com/casey/just). The plugin and `python3 <trick>/<trick>.py` paths don't.
 
+## quick install (one line)
+
+Grab the whole bag — no clone, no `just`. Downloads the repo, then symlinks every trick's CLI into `~/.local/bin` and its `SKILL.md` into `~/.claude/skills/`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JGalego/Bag-of-Tricks/main/install.sh | bash
+```
+
+It discovers tricks by scanning the tree, so it always installs the full set. Knobs: `BIN_DIR`, `BOT_HOME`, `BOT_REF` (branch/tag), `BOT_SKILLS`. Make sure `~/.local/bin` is on your `PATH`.
+
+Want just one trick? Grab a single folder as a zip — `just pack frisk` (writes `dist/frisk.zip`), or download it straight from GitHub via [download-directory.github.io](https://download-directory.github.io/?url=https://github.com/JGalego/Bag-of-Tricks/tree/main/frisk). `just pack` with no args zips every trick plus the whole bag.
+
 ## install standalone
 
 Prefer plain CLIs and skills without the plugin system? Recipes run with [`just`](https://github.com/casey/just). Installing a trick symlinks its CLI into `~/.local/bin` and its `SKILL.md` into `~/.claude/skills/`:

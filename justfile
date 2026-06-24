@@ -61,14 +61,46 @@ uninstall +tricks="all":
       echo "uninstalled $t"
     done
 
+# package one or more tricks (default: all) as zips under dist/
+pack +tricks="all":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{justfile_directory()}}"
+    command -v zip >/dev/null || { echo "need 'zip' installed"; exit 1; }
+    mkdir -p dist
+    want="{{tricks}}"
+    [ "$want" = "all" ] && want="{{_all}}"
+    for t in $want; do
+      case " {{_all}} " in *" $t "*) ;; *)
+        echo "unknown trick: $t (choose from: {{_all}}, or 'all')"; exit 1;; esac
+      rm -f "dist/$t.zip"
+      ( cd "$t" && zip -qr "../dist/$t.zip" . -x '*__pycache__*' '*.pyc' )
+      echo "packed dist/$t.zip"
+    done
+    if [ "{{tricks}}" = "all" ]; then
+      rm -f dist/bag-of-tricks.zip
+      zip -qr dist/bag-of-tricks.zip {{_all}} README.md LICENSE -x '*__pycache__*' '*.pyc'
+      echo "packed dist/bag-of-tricks.zip (whole bag)"
+    fi
+
 # install dev/CI tooling (ruff + pytest + logo generation)
 dev:
     pip install -r requirements-dev.txt
 
 # (re)generate logos from source: banners, wheel, network + animation, logo
-# TARGET ∈ {all banners wheel network animation logo} (default: all)
+# TARGET ∈ {all banners wheel network animation web logo} (default: all).
+# The full build renders the static network as category clusters and the GIF
+# as the colour-ringed, node-less network (--no-category-nodes).
 assets +target="all":
-    python3 assets/generate.py {{target}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{justfile_directory()}}"
+    if [ "{{target}}" = "all" ]; then
+      python3 assets/generate.py banners wheel network web logo
+      python3 assets/generate.py animation --no-category-nodes
+    else
+      python3 assets/generate.py {{target}}
+    fi
 
 # run the linter
 lint:

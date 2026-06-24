@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bag of tricks — network</title>
+<style>
+  :root{
+    --bg:#0d1117; --fg:#e6edf3; --panel:#161b22; --line:#30363d;
+    --muted:#8b949e; --accent:#58a6ff; --accent2:#3fb950;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,'DejaVu Sans Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;width:100%;overflow:hidden;
+    background:var(--bg);color:var(--fg);font-family:var(--mono)}
+  #wrap{position:fixed;top:0;left:0;width:100vw;height:100vh;overflow:hidden;
+    display:flex;flex-direction:column}
+  header{padding:12px 20px;border-bottom:1px solid var(--line);display:flex;
+    gap:12px 18px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  header .hl{display:flex;flex-direction:column;gap:2px;min-width:0}
+  header .t{font-weight:700;letter-spacing:.5px}
+  header .s{color:var(--muted);font-size:13px}
+  header .hr{display:flex;align-items:center;gap:10px}
+  .ghl{display:inline-flex;align-items:center;gap:7px;color:var(--fg);text-decoration:none;
+    border:1px solid var(--line);border-radius:8px;padding:6px 11px;font-size:13px;background:#161b22}
+  .ghl:hover{border-color:var(--muted)}
+  .ghl .stars{color:var(--muted)}
+  .ghl .stars:not(:empty)::before{content:"★ ";color:var(--accent2)}
+  .inst{position:relative}
+  .ibtn{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--bg);
+    background:var(--fg);border:0;border-radius:8px;padding:7px 12px;cursor:pointer}
+  .ibtn .car{opacity:.7}
+  .menu{position:absolute;right:0;top:calc(100% + 8px);width:300px;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:8px;z-index:20;display:none;
+    box-shadow:0 14px 40px rgba(0,0,0,.6)}
+  .menu.open{display:block}
+  .menu .mh{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.6px;padding:6px 8px}
+  .menu .cmd{display:block;width:100%;text-align:left;background:transparent;border:0;
+    border-radius:7px;padding:8px;cursor:pointer;color:var(--fg)}
+  .menu .cmd:hover{background:#1b2230}
+  .menu .cmd b{display:block;font-size:13px;margin-bottom:2px}
+  .menu .cmd code{display:block;color:var(--muted);font-size:11.5px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .menu .cmd.copied b::after{content:" ✓ copied";color:var(--accent2)}
+  @media (max-width:560px){header .s{display:none} .ghl span:not(.stars){display:none} .menu{width:270px}}
+  #stage{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0}
+  .grid{position:absolute;inset:0;pointer-events:none;opacity:.22;
+    background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:28px 28px}
+  #net{width:100%;height:100%;display:block;touch-action:none}
+  .ce{stroke-width:5;opacity:.5;pointer-events:none;transition:opacity .15s}
+  .te{stroke-width:2.2;opacity:.36;pointer-events:none;transition:opacity .15s}
+  .ce.lit,.te.lit{opacity:.95}
+  .hat{pointer-events:none}
+  .node{cursor:pointer}
+  .node > text{fill:var(--muted);font-size:14px;font-weight:600;text-anchor:middle}
+  .node .ring{transition:stroke-width .12s}
+  .hit{fill:transparent}
+  .node:hover > text,.node.active > text{fill:var(--fg)}
+  .node:hover .ring,.node.active .ring{stroke-width:5}
+  .cat{cursor:pointer}
+  .cat text{fill:var(--bg);font-size:18px;font-weight:700;text-anchor:middle;pointer-events:none}
+  .cat:hover,.cat.active{filter:brightness(1.15)}
+  body.frozen .te,body.frozen .ce{opacity:.12}
+  body.frozen .te.lit,body.frozen .ce.lit{opacity:.95}
+  #panel{position:absolute;max-width:330px;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:0;opacity:0;
+    transform:translateY(6px);transition:opacity .12s,transform .12s;
+    pointer-events:none;box-shadow:0 12px 34px rgba(0,0,0,.55);overflow:hidden}
+  #panel.show{opacity:1;transform:none}
+  #panel .bar{display:flex;align-items:center;gap:7px;padding:9px 13px;
+    border-bottom:1px solid var(--line);background:#1b2230}
+  #panel .bar i{width:11px;height:11px;border-radius:50%;background:#3a4150;display:inline-block}
+  #panel .bar i:nth-child(1){background:#ff5f56}
+  #panel .bar i:nth-child(2){background:#ffbd2e}
+  #panel .bar i:nth-child(3){background:#27c93f}
+  #panel .bar .f{margin-left:6px;color:var(--muted);font-size:12px}
+  #panel .body{padding:14px 16px}
+  #panel .h{color:var(--accent);font-weight:700;margin-bottom:8px}
+  #panel .h .p{color:var(--accent2)}
+  #panel .cap{font-style:italic;color:var(--fg);margin:0 0 10px;line-height:1.4}
+  #panel .desc{color:var(--muted);font-size:13px;line-height:1.55;margin:0}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <div class="hl">
+      <span class="t">bag of tricks</span>
+      <span class="s">single-idea LLM hacks — hover a trick to inspect · click to download</span>
+    </div>
+    <div class="hr">
+      <a class="ghl" href="https://github.com/JGalego/Bag-of-Tricks" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 012-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span>JGalego/Bag-of-Tricks</span><span class="stars" id="stars"></span>
+      </a>
+      <div class="inst">
+        <button class="ibtn" id="instbtn">&#9889; install <span class="car">&#9662;</span></button>
+        <div class="menu" id="instmenu">
+          <div class="mh">run the whole bag</div>
+          <button class="cmd" data-cmd="curl -fsSL https://raw.githubusercontent.com/JGalego/Bag-of-Tricks/main/install.sh | bash">
+            <b>curl · every trick</b><code>curl -fsSL …/install.sh | bash</code></button>
+          <button class="cmd" data-cmd="/plugin marketplace add JGalego/Bag-of-Tricks">
+            <b>Claude Code plugin</b><code>/plugin marketplace add JGalego/Bag-of-Tricks</code></button>
+          <button class="cmd" data-cmd="git clone https://github.com/JGalego/Bag-of-Tricks &amp;&amp; cd Bag-of-Tricks &amp;&amp; just install">
+            <b>clone &amp; just install</b><code>git clone … &amp;&amp; just install</code></button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div id="stage">
+    <div class="grid"></div>
+    <svg id="net" preserveAspectRatio="xMidYMid meet">
+      <g id="cedges"><line class="ce" id="ce0" stroke="#3b82f6"/><line class="ce" id="ce1" stroke="#22a55a"/><line class="ce" id="ce2" stroke="#e5534b"/><line class="ce" id="ce3" stroke="#a371f7"/><line class="ce" id="ce4" stroke="#d4a017"/></g>
+      <g id="tedges"><line class="te" id="te0" stroke="#3b82f6"/><line class="te" id="te1" stroke="#22a55a"/><line class="te" id="te2" stroke="#e5534b"/><line class="te" id="te3" stroke="#a371f7"/><line class="te" id="te4" stroke="#d4a017"/><line class="te" id="te5" stroke="#3b82f6"/><line class="te" id="te6" stroke="#e5534b"/><line class="te" id="te7" stroke="#3b82f6"/><line class="te" id="te8" stroke="#d4a017"/><line class="te" id="te9" stroke="#22a55a"/><line class="te" id="te10" stroke="#e5534b"/><line class="te" id="te11" stroke="#3b82f6"/><line class="te" id="te12" stroke="#22a55a"/><line class="te" id="te13" stroke="#3b82f6"/><line class="te" id="te14" stroke="#22a55a"/><line class="te" id="te15" stroke="#d4a017"/><line class="te" id="te16" stroke="#3b82f6"/></g>
+      <g class="hat" id="hat">
+  <title>bag of tricks</title>
+
+  <!-- white background -->
+  
+
+  <!-- the trick, conjured from the hat: interrobang + sparkles -->
+  <g fill="#e6edf3">
+    <text x="600" y="285" font-family="Georgia, 'Times New Roman', serif"
+          font-size="170" text-anchor="middle">&#8253;</text>
+    <!-- 4-point sparkles -->
+    <path d="M575 110 C575 134 551 158 527 158 C551 158 575 182 575 206 C575 182 599 158 623 158 C599 158 575 134 575 110 Z"/>
+    <path d="M678 205 C678 221 662 237 646 237 C662 237 678 253 678 269 C678 253 694 237 710 237 C694 237 678 221 678 205 Z"/>
+    <path d="M512 250 C512 262 500 274 488 274 C500 274 512 286 512 298 C512 286 524 274 536 274 C524 274 512 262 512 250 Z"/>
+  </g>
+
+  <!-- top hat (the bag of tricks) -->
+  <g>
+    <!-- brim -->
+    <ellipse cx="400" cy="500" rx="215" ry="44" fill="#e6edf3"/>
+    <!-- crown, flared slightly at the top -->
+    <path d="M285 470 L268 300 L532 300 L515 470 Z" fill="#e6edf3"/>
+    <!-- hat band -->
+    <path d="M295 452 L505 452 L501 488 L299 488 Z" fill="#0d1117"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="400" y="668" text-anchor="middle"
+        font-family="'SF Mono', ui-monospace, 'Menlo', 'Consolas', monospace"
+        font-size="62" font-weight="600" letter-spacing="1" fill="#e6edf3">bag of tricks</text>
+</g>
+      <g id="nodes"><g class="node" id="node0" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><rect x="8" y="8" width="84" height="84" rx="22" fill="#e6edf3"/><rect x="29" y="38" width="12" height="12" rx="3" fill="#0d1117"/><rect x="59" y="38" width="12" height="12" rx="3" fill="#0d1117"/><rect x="30" y="64" width="40" height="7" rx="3" fill="#0d1117"/></g><circle class="ring" r="39" fill="none" stroke="#3b82f6" stroke-width="3"/><circle class="hit" r="44"/><text y="61">deadpan</text></g><g class="node" id="node1" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><ellipse cx="50" cy="50" rx="32" ry="19" fill="none" stroke="#0d1117" stroke-width="6"/><circle cx="50" cy="50" r="11" fill="#0d1117"/></g><circle class="ring" r="39" fill="none" stroke="#22a55a" stroke-width="3"/><circle class="hit" r="44"/><text y="61">snitch</text></g><g class="node" id="node2" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><circle cx="50" cy="32" r="9" fill="#0d1117"/><line x1="50" y1="40" x2="50" y2="78" stroke="#0d1117" stroke-width="7" stroke-linecap="round"/><line x1="34" y1="53" x2="66" y2="53" stroke="#0d1117" stroke-width="7" stroke-linecap="round"/></g><circle class="ring" r="39" fill="none" stroke="#e5534b" stroke-width="3"/><circle class="hit" r="44"/><text y="61">strawman</text></g><g class="node" id="node3" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><text x="50" y="74" font-family="Georgia, 'DejaVu Serif', 'Times New Roman', serif" font-size="74" fill="#0d1117" text-anchor="middle">&#8253;</text></g><circle class="ring" r="39" fill="none" stroke="#a371f7" stroke-width="3"/><circle class="hit" r="44"/><text y="61">interrobang</text></g><g class="node" id="node4" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><path d="M34 26 L66 26 L50 80 Z" fill="#0d1117"/><circle cx="50" cy="44" r="4.5" fill="#e6edf3"/><line x1="50" y1="48" x2="50" y2="70" stroke="#e6edf3" stroke-width="3"/></g><circle class="ring" r="39" fill="none" stroke="#d4a017" stroke-width="3"/><circle class="hit" r="44"/><text y="61">steno</text></g><g class="node" id="node5" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><text x="33" y="68" font-family="'DejaVu Sans Mono', 'Liberation Mono', ui-monospace, Menlo, Consolas, monospace" font-size="58" font-weight="700" fill="#0d1117" text-anchor="middle">{</text><text x="67" y="68" font-family="'DejaVu Sans Mono', 'Liberation Mono', ui-monospace, Menlo, Consolas, monospace" font-size="58" font-weight="700" fill="#0d1117" text-anchor="middle">}</text></g><circle class="ring" r="39" fill="none" stroke="#3b82f6" stroke-width="3"/><circle class="hit" r="44"/><text y="61">salvage</text></g><g class="node" id="node6" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><path d="M50 26 L72 34 L72 54 C72 68 62 76 50 82 C38 76 28 68 28 54 L28 34 Z" fill="#0d1117"/><circle cx="50" cy="50" r="7" fill="#e6edf3"/><path d="M47 50 L53 50 L55 69 L45 69 Z" fill="#e6edf3"/></g><circle class="ring" r="39" fill="none" stroke="#e5534b" stroke-width="3"/><circle class="hit" r="44"/><text y="61">frisk</text></g><g class="node" id="node7" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><ellipse cx="50" cy="50" rx="30" ry="18" fill="#0d1117"/><circle cx="50" cy="50" r="11" fill="#e6edf3"/><circle cx="55" cy="45" r="3.5" fill="#0d1117"/></g><circle class="ring" r="39" fill="none" stroke="#3b82f6" stroke-width="3"/><circle class="hit" r="44"/><text y="61">tell</text></g><g class="node" id="node8" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><text x="50" y="73" font-family="'DejaVu Sans', 'Liberation Sans', 'Helvetica Neue', Arial, sans-serif" font-size="64" font-weight="700" fill="#0d1117" text-anchor="middle">$</text></g><circle class="ring" r="39" fill="none" stroke="#d4a017" stroke-width="3"/><circle class="hit" r="44"/><text y="61">tollbooth</text></g><g class="node" id="node9" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><path d="M50 24 C40 40 26 46 26 58 C26 67 33 72 40 70 C44 69 47 66 49 63 C48 70 45 76 40 80 L60 80 C55 76 52 70 51 63 C53 66 56 69 60 70 C67 72 74 67 74 58 C74 46 60 40 50 24 Z" fill="#0d1117"/></g><circle class="ring" r="39" fill="none" stroke="#22a55a" stroke-width="3"/><circle class="hit" r="44"/><text y="61">bluff</text></g><g class="node" id="node10" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><circle cx="44" cy="44" r="15" fill="none" stroke="#0d1117" stroke-width="7"/><line x1="55" y1="55" x2="73" y2="73" stroke="#0d1117" stroke-width="9" stroke-linecap="round"/></g><circle class="ring" r="39" fill="none" stroke="#e5534b" stroke-width="3"/><circle class="hit" r="44"/><text y="61">mole</text></g><g class="node" id="node11" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><path d="M50 24 C50 24 32 47 32 60 A18 18 0 1 0 68 60 C68 47 50 24 50 24 Z" fill="#0d1117"/><circle cx="50" cy="62" r="7" fill="#e6edf3"/></g><circle class="ring" r="39" fill="none" stroke="#3b82f6" stroke-width="3"/><circle class="hit" r="44"/><text y="61">launder</text></g><g class="node" id="node12" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><path d="M30 52 L44 66 L72 33" fill="none" stroke="#0d1117" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></g><circle class="ring" r="39" fill="none" stroke="#22a55a" stroke-width="3"/><circle class="hit" r="44"/><text y="61">alibi</text></g><g class="node" id="node13" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><path d="M33 31 H67 V58 L57 68 H33 Z" fill="#0d1117"/><path d="M67 58 H57 V68 Z" fill="#e6edf3" opacity="0.45"/></g><circle class="ring" r="39" fill="none" stroke="#3b82f6" stroke-width="3"/><circle class="hit" r="44"/><text y="61">fold</text></g><g class="node" id="node14" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><g stroke="#0d1117" stroke-width="5" stroke-linecap="round"><line x1="35" y1="29" x2="35" y2="71"/><line x1="45" y1="29" x2="45" y2="71"/><line x1="55" y1="29" x2="55" y2="71"/><line x1="65" y1="29" x2="65" y2="71"/><line x1="30" y1="42" x2="70" y2="42"/><line x1="30" y1="58" x2="70" y2="58"/></g></g><circle class="ring" r="39" fill="none" stroke="#22a55a" stroke-width="3"/><circle class="hit" r="44"/><text y="61">grill</text></g><g class="node" id="node15" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><g fill="#0d1117"><rect x="33" y="52" width="8" height="20"/><rect x="44" y="40" width="8" height="32"/><rect x="55" y="47" width="8" height="25"/><rect x="65" y="34" width="6" height="38"/><rect x="30" y="74" width="42" height="4"/></g></g><circle class="ring" r="39" fill="none" stroke="#d4a017" stroke-width="3"/><circle class="hit" r="44"/><text y="61">lineup</text></g><g class="node" id="node16" transform="translate(0,0)"><circle r="39" fill="#0d1117"/><g transform="translate(-30.0,-30.0) scale(0.600)"><circle cx="50" cy="50" r="46" fill="#e6edf3"/><rect x="32" y="30" width="36" height="42" fill="none" stroke="#0d1117" stroke-width="4"/><circle cx="50" cy="47" r="8" fill="#0d1117"/><path d="M37 70 C37 60 44 56 50 56 C56 56 63 60 63 70 Z" fill="#0d1117"/></g><circle class="ring" r="39" fill="none" stroke="#3b82f6" stroke-width="3"/><circle class="hit" r="44"/><text y="61">mugshot</text></g></g>
+      <g id="cats"><g class="cat" id="cat0" transform="translate(0,0)"><rect x="-50" y="-24" width="101" height="48" rx="24" fill="#3b82f6"/><text y="6">output</text><rect class="hit" x="-50" y="-24" width="101" height="48" rx="24"/></g><g class="cat" id="cat1" transform="translate(0,0)"><rect x="-67" y="-24" width="133" height="48" rx="24" fill="#22a55a"/><text y="6">debugging</text><rect class="hit" x="-67" y="-24" width="133" height="48" rx="24"/></g><g class="cat" id="cat2" transform="translate(0,0)"><rect x="-61" y="-24" width="122" height="48" rx="24" fill="#e5534b"/><text y="6">security</text><rect class="hit" x="-61" y="-24" width="122" height="48" rx="24"/></g><g class="cat" id="cat3" transform="translate(0,0)"><rect x="-61" y="-24" width="122" height="48" rx="24" fill="#a371f7"/><text y="6">workflow</text><rect class="hit" x="-61" y="-24" width="122" height="48" rx="24"/></g><g class="cat" id="cat4" transform="translate(0,0)"><rect x="-83" y="-24" width="166" height="48" rx="24" fill="#d4a017"/><text y="6">productivity</text><rect class="hit" x="-83" y="-24" width="166" height="48" rx="24"/></g></g>
+    </svg>
+    <div id="panel">
+      <div class="bar"><i></i><i></i><i></i><span class="f" id="pfile"></span></div>
+      <div class="body">
+        <div class="h"><span class="p">&#10095;</span> <span id="pname"></span></div>
+        <p class="cap" id="pcap"></p>
+        <p class="desc" id="pdesc"></p>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const T = [{"name": "deadpan", "cat": "output", "color": "#3b82f6", "catchphrase": "the answer. nothing else.", "description": "strip LLM replies of personality, filler, hedging, emoji, and sycophancy."}, {"name": "snitch", "cat": "debugging", "color": "#22a55a", "catchphrase": "see what your agent actually said behind your back.", "description": "a transparent proxy + web UI that logs the exact bytes your agent sends the model."}, {"name": "strawman", "cat": "security", "color": "#e5534b", "catchphrase": "argue with yourself before the internet does.", "description": "red-team a prompt across jailbreak, injection, derailment, extraction, and ambiguity."}, {"name": "interrobang", "cat": "workflow", "color": "#a371f7", "catchphrase": "make it ask before it acts.", "description": "flip the helpful-assistant reflex: ask one sharp clarifying question instead of guessing."}, {"name": "steno", "cat": "productivity", "color": "#d4a017", "catchphrase": "two letters, and the prompt writes itself.", "description": "short aliases that expand into full prompts for common dev tasks."}, {"name": "salvage", "cat": "output", "color": "#3b82f6", "catchphrase": "rip the JSON out of the chatter.", "description": "extract and repair valid JSON buried in chatty LLM output (fences, trailing commas, Python literals)."}, {"name": "frisk", "cat": "security", "color": "#e5534b", "catchphrase": "pat it down before it ships.", "description": "scan text headed to the model for secrets and PII (API keys, tokens, private keys, emails) and redact or flag them."}, {"name": "tell", "cat": "output", "color": "#3b82f6", "catchphrase": "every AI has a tell.", "description": "flag the giveaways in AI-written prose (delve, tapestry, \"it's not just X, it's Y\", em-dash overuse)."}, {"name": "tollbooth", "cat": "productivity", "color": "#d4a017", "catchphrase": "know the bill before the bill.", "description": "estimate token count and dollar cost of a prompt across models before you send it."}, {"name": "bluff", "cat": "debugging", "color": "#22a55a", "catchphrase": "call its bluff.", "description": "extract the URLs and citations from an answer and check they actually resolve, catching hallucinated links."}, {"name": "mole", "cat": "security", "color": "#e5534b", "catchphrase": "find the plant.", "description": "sniff out prompt-injection and planted instructions hiding in untrusted input before it reaches the model."}, {"name": "launder", "cat": "output", "color": "#3b82f6", "catchphrase": "wash out the prints.", "description": "strip the mechanical fingerprints from text: zero-width chars, smart quotes, exotic spaces, em-dash tics."}, {"name": "alibi", "cat": "debugging", "color": "#22a55a", "catchphrase": "does the story check out?", "description": "flag answer claims that aren't supported by the provided sources (a lexical grounding check for RAG)."}, {"name": "fold", "cat": "output", "color": "#3b82f6", "catchphrase": "know when to fold.", "description": "catch overconfident phrasing and absolutes so the model hedges or abstains instead of bluffing."}, {"name": "grill", "cat": "debugging", "color": "#22a55a", "catchphrase": "put it in the hot seat.", "description": "adversarially interrogate an answer with probing follow-ups before you trust it."}, {"name": "lineup", "cat": "productivity", "color": "#d4a017", "catchphrase": "same prompt, the whole lineup.", "description": "run one prompt across several models and lay the answers side by side."}, {"name": "mugshot", "cat": "output", "color": "#3b82f6", "catchphrase": "we know your prints.", "description": "guess which model wrote a passage from its stylistic fingerprints (a heuristic, not proof)."}], CATS = [{"name": "output", "color": "#3b82f6", "blurb": "shape and clean up what the model emits", "members": ["deadpan", "salvage", "tell", "launder", "fold", "mugshot"]}, {"name": "debugging", "color": "#22a55a", "blurb": "see and fix what your agent is actually doing", "members": ["snitch", "bluff", "alibi", "grill"]}, {"name": "security", "color": "#e5534b", "blurb": "probe prompts and context for attacks and leaks", "members": ["strawman", "frisk", "mole"]}, {"name": "workflow", "color": "#a371f7", "blurb": "change how the model decides and when it acts", "members": ["interrobang"]}, {"name": "productivity", "color": "#d4a017", "blurb": "everyday LLM dev chores, done faster", "members": ["steno", "tollbooth", "lineup"]}], CATOF = [0, 1, 2, 3, 4, 0, 2, 0, 4, 1, 2, 0, 1, 0, 1, 4, 0], SEED = 42;
+const REPO = "JGalego/Bag-of-Tricks", REF = "main";
+const NODES = [...document.querySelectorAll('.node')];
+const PILLS = CATS.map((_, k) => document.getElementById('cat' + k));
+const teEls = T.map((_, i) => document.getElementById('te' + i));
+const ceEls = CATS.map((_, k) => document.getElementById('ce' + k));
+const hat = document.getElementById('hat');
+const svg = document.getElementById('net'), stage = document.getElementById('stage');
+const panel = document.getElementById('panel');
+const ICON = 60, PILLFS = 18, HAT_SC = .85, D = 1100;              // design units
+const WANDER = .03, SPRING = .012, DAMP = .9, MAXV = .32, ROAM = 15;  // gentle jiggle
+let paused = false, active = null, cpos = [], st = [];
+const rnd = () => Math.random();
+const pillHalf = (name) => (name.length * PILLFS * 0.6 + 36) / 2;
+
+// Category-cluster layout, computed once in a fixed DxD design space (mirrors
+// the Python generator): category hubs ring the centre, each category's tricks
+// fan outward, relaxed so nothing overlaps and all clear the central hat. The
+// SVG viewBox is then fitted to the result, so it scales to any window / phone.
+function layout() {
+  const cx = D / 2, cy = D / 2, K = CATS.length;
+  const rx = D * 0.30, ry = D * 0.33;
+  const cp = CATS.map((_, k) => { const a = -Math.PI / 2 + 2 * Math.PI * k / K;
+    return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)]; });
+  const mem = CATS.map(() => []); CATOF.forEach((ci, i) => mem[ci].push(i));
+  const tmin = CATS.map((c) => pillHalf(c.name) + ICON / 2 + 22);
+  const tmax = CATS.map((c, k) => tmin[k] + 64 + mem[k].length * 16);
+  let s = SEED * 13 + 5; const r = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const tp = new Array(T.length);
+  CATS.forEach((c, k) => {
+    const m = Math.max(mem[k].length, 1), out = Math.atan2(cp[k][1] - cy, cp[k][0] - cx);
+    mem[k].forEach((ti, i) => {
+      const a = out + ((i + 0.5) / m - 0.5) * Math.PI * 1.15 + (r() - .5) * 0.24;
+      const rr = (tmin[k] + tmax[k]) / 2 * (0.85 + 0.3 * r());
+      tp[ti] = [cp[k][0] + rr * Math.cos(a), cp[k][1] + rr * Math.sin(a)];
+    });
+  });
+  const MINTT = ICON + 22, MARG = 50, KEEP = 330;
+  for (let it = 0; it < 420; it++) {
+    for (let i = 0; i < tp.length; i++) for (let j = i + 1; j < tp.length; j++) {
+      let a = tp[i], b = tp[j], dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy) || .01;
+      if (d < MINTT) { const f = (MINTT - d) / 2; dx /= d; dy /= d;
+        a[0] -= dx * f; a[1] -= dy * f; b[0] += dx * f; b[1] += dy * f; }
+    }
+    for (let i = 0; i < tp.length; i++) {
+      const ci = CATOF[i], p = tp[i], ccx = cp[ci][0], ccy = cp[ci][1];
+      let dx = p[0] - ccx, dy = p[1] - ccy, d = Math.hypot(dx, dy) || .01;
+      if (d < tmin[ci]) { p[0] = ccx + dx / d * tmin[ci]; p[1] = ccy + dy / d * tmin[ci]; }
+      else if (d > tmax[ci]) { p[0] = ccx + dx / d * tmax[ci]; p[1] = ccy + dy / d * tmax[ci]; }
+      for (let k = 0; k < K; k++) { if (k === ci) continue;
+        let ex = p[0] - cp[k][0], ey = p[1] - cp[k][1], ed = Math.hypot(ex, ey) || .01;
+        const cl = pillHalf(CATS[k].name) + ICON / 2 + 16;
+        if (ed < cl) { p[0] = cp[k][0] + ex / ed * cl; p[1] = cp[k][1] + ey / ed * cl; } }
+      let gx = p[0] - cx, gy = p[1] - cy, gd = Math.hypot(gx, gy) || .01;
+      if (gd < KEEP) { p[0] = cx + gx / gd * KEEP; p[1] = cy + gy / gd * KEEP; }
+      p[0] = Math.max(MARG, Math.min(D - MARG, p[0])); p[1] = Math.max(MARG, Math.min(D - MARG, p[1]));
+    }
+  }
+  return {cp, tp};
+}
+
+function fitViewBox() {
+  let a = 1e9, b = 1e9, c = -1e9, e = -1e9;
+  const inc = (x, y) => { a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); e = Math.max(e, y); };
+  st.forEach((p, i) => {                                           // node + its centred label
+    const r = ICON / 2 + 12, lab = Math.max(r, T[i].name.length * 14 * 0.6 / 2);
+    inc(p.hx - lab, p.hy - r); inc(p.hx + lab, p.hy + r + 26);
+  });
+  CATS.forEach((cc, k) => { const hw = pillHalf(cc.name); inc(cpos[k][0] - hw, cpos[k][1] - 24); inc(cpos[k][0] + hw, cpos[k][1] + 24); });
+  const o = D / 2 - 400 * HAT_SC;                                   // hat art bounds (~185..710, 110..690)
+  inc(o + 185 * HAT_SC, o + 110 * HAT_SC); inc(o + 710 * HAT_SC, o + 690 * HAT_SC);
+  const pad = 26 + ROAM;
+  svg.setAttribute('viewBox', `${(a - pad).toFixed(0)} ${(b - pad).toFixed(0)} ${(c - a + 2 * pad).toFixed(0)} ${(e - b + 2 * pad).toFixed(0)}`);
+}
+
+function render() {
+  for (let i = 0; i < NODES.length; i++) {
+    NODES[i].setAttribute('transform', `translate(${st[i].x.toFixed(2)},${st[i].y.toFixed(2)})`);
+    const ci = CATOF[i], e = teEls[i];
+    e.setAttribute('x1', st[i].x.toFixed(1)); e.setAttribute('y1', st[i].y.toFixed(1));
+    e.setAttribute('x2', cpos[ci][0].toFixed(1)); e.setAttribute('y2', cpos[ci][1].toFixed(1));
+  }
+}
+
+function step() {
+  if (!paused) {
+    for (const a of st) {
+      a.vx += (rnd() - .5) * WANDER; a.vy += (rnd() - .5) * WANDER;   // random nudge
+      a.vx += (a.hx - a.x) * SPRING; a.vy += (a.hy - a.y) * SPRING;   // pull home
+      a.vx *= DAMP; a.vy *= DAMP;
+      const sp = Math.hypot(a.vx, a.vy);
+      if (sp > MAXV) { a.vx *= MAXV / sp; a.vy *= MAXV / sp; }
+      a.x += a.vx; a.y += a.vy;
+      const dx = a.x - a.hx, dy = a.y - a.hy, d = Math.hypot(dx, dy);
+      if (d > ROAM) { a.x = a.hx + dx / d * ROAM; a.y = a.hy + dy / d * ROAM; }  // never far
+    }
+  }
+  render();
+  requestAnimationFrame(step);
+}
+
+// build once (layout is fixed; the viewBox makes it responsive)
+const L = layout(); cpos = L.cp;
+const C = D / 2;
+hat.setAttribute('transform', `translate(${C - 400 * HAT_SC},${C - 400 * HAT_SC}) scale(${HAT_SC})`);
+PILLS.forEach((g, k) => g.setAttribute('transform', `translate(${cpos[k][0].toFixed(1)},${cpos[k][1].toFixed(1)})`));
+ceEls.forEach((e, k) => { e.setAttribute('x1', C); e.setAttribute('y1', C);
+  e.setAttribute('x2', cpos[k][0].toFixed(1)); e.setAttribute('y2', cpos[k][1].toFixed(1)); });
+st = L.tp.map(([hx, hy]) => ({x: hx, y: hy, hx, hy, vx: 0, vy: 0}));
+fitViewBox();
+requestAnimationFrame(step);
+
+function clearActive() {
+  teEls.forEach(e => e.classList.remove('lit'));
+  ceEls.forEach(e => e.classList.remove('lit'));
+  NODES.forEach(n => n.classList.remove('active'));
+  PILLS.forEach(p => p.classList.remove('active'));
+}
+function placePanel(wx, wy) {
+  const pt = new DOMPoint(wx, wy).matrixTransform(svg.getScreenCTM());
+  const r = stage.getBoundingClientRect(), pw = panel.offsetWidth, ph = panel.offsetHeight;
+  let px = pt.x - r.left + 34, py = pt.y - r.top - ph / 2;
+  if (px + pw > r.width - 12) px = pt.x - r.left - 34 - pw;
+  panel.style.left = Math.max(8, Math.min(px, r.width - pw - 8)) + 'px';
+  panel.style.top = Math.max(8, Math.min(py, r.height - ph - 8)) + 'px';
+}
+function openPanel(color, file, name, cap, desc) {
+  paused = true; document.body.classList.add('frozen');
+  const h = document.getElementById('pname').parentElement;
+  h.style.color = color;
+  document.getElementById('pname').textContent = name;
+  document.getElementById('pfile').textContent = file;
+  document.getElementById('pcap').textContent = cap;
+  document.getElementById('pdesc').textContent = desc;
+  panel.style.borderColor = color;
+  panel.classList.add('show');
+}
+function showTrick(i) {
+  clearActive(); active = i;
+  const t = T[i], ci = CATOF[i];
+  NODES[i].classList.add('active'); teEls[i].classList.add('lit');
+  ceEls[ci].classList.add('lit'); PILLS[ci].classList.add('active');
+  openPanel(t.color, t.name + '/SKILL.md', t.name, t.catchphrase,
+            t.description + '\n\ncategory: ' + t.cat);
+  placePanel(st[i].x, st[i].y);
+}
+function showCat(k) {
+  clearActive(); active = 'c' + k;
+  const c = CATS[k];
+  ceEls[k].classList.add('lit'); PILLS[k].classList.add('active');
+  CATOF.forEach((ci, i) => { if (ci === k) { teEls[i].classList.add('lit'); NODES[i].classList.add('active'); } });
+  openPanel(c.color, 'category · ' + c.members.length + ' tricks', c.name, c.blurb, c.members.join(' · '));
+  placePanel(cpos[k][0], cpos[k][1]);
+}
+function hide() {
+  paused = false; document.body.classList.remove('frozen');
+  clearActive(); active = null; panel.classList.remove('show');
+}
+// click a trick to download just that trick as a .zip (via download-directory)
+function download(name) {
+  const url = 'https://github.com/' + REPO + '/tree/' + REF + '/' + name;
+  window.open('https://download-directory.github.io/?url=' + encodeURIComponent(url), '_blank', 'noopener');
+}
+NODES.forEach((n, i) => {
+  n.addEventListener('mouseenter', () => showTrick(i));
+  n.addEventListener('mouseleave', hide);
+  n.addEventListener('focus', () => showTrick(i));
+  n.addEventListener('blur', hide);
+  n.addEventListener('click', () => download(T[i].name));
+  n.setAttribute('tabindex', '0');
+});
+PILLS.forEach((p, k) => {
+  p.addEventListener('mouseenter', () => showCat(k));
+  p.addEventListener('mouseleave', hide);
+});
+
+// install dropdown: toggle + copy-to-clipboard
+const instbtn = document.getElementById('instbtn'), instmenu = document.getElementById('instmenu');
+instbtn.addEventListener('click', (e) => { e.stopPropagation(); instmenu.classList.toggle('open'); });
+document.addEventListener('click', () => instmenu.classList.remove('open'));
+instmenu.addEventListener('click', (e) => e.stopPropagation());
+document.querySelectorAll('.cmd').forEach(b => b.addEventListener('click', () => {
+  navigator.clipboard && navigator.clipboard.writeText(b.dataset.cmd);
+  b.classList.add('copied'); setTimeout(() => b.classList.remove('copied'), 1400);
+}));
+
+// live star count (best-effort; silently skipped offline)
+fetch('https://api.github.com/repos/' + REPO).then(r => r.json()).then(d => {
+  if (d && typeof d.stargazers_count === 'number') {
+    const s = d.stargazers_count;
+    document.getElementById('stars').textContent = s >= 1000 ? (s / 1000).toFixed(1) + 'k' : s;
+  }
+}).catch(() => {});
+</script>
+</body>
+</html>
