@@ -407,7 +407,7 @@ def network_body(names, pos, edges, hub_links, rings=False):
     for name, (x, y) in zip(names, pos):
         body += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{PAPER}"/>'
         body += icon_g(name, x, y, NET_ICON)
-        if rings:                                            # category colour, no category node
+        if rings:  # category colour, no category node
             body += (
                 f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="none" '
                 f'stroke="{pal[cat_of[name]]}" stroke-width="4"/>'
@@ -506,16 +506,16 @@ def cluster_layout(names, seed, W, H):
     for c in cats:
         mem = members[c]
         m = max(len(mem), 1)
-        outward = math.atan2(cpos[c][1] - cy, cpos[c][0] - cx)   # point away from centre
+        outward = math.atan2(cpos[c][1] - cy, cpos[c][0] - cx)  # point away from centre
         spread = math.pi * 1.15
         for i, n in enumerate(mem):
-            frac = (i + 0.5) / m - 0.5                           # -0.5 .. 0.5 across the fan
+            frac = (i + 0.5) / m - 0.5  # -0.5 .. 0.5 across the fan
             a = outward + frac * spread + rng.uniform(-0.12, 0.12)
             r = (t_min[c] + t_max[c]) / 2 * (0.85 + 0.3 * rng.random())
             tpos[n] = [cpos[c][0] + r * math.cos(a), cpos[c][1] + r * math.sin(a)]
 
-    min_tt = NET_ICON + 26          # trick-to-trick clearance
-    keepout = 380                   # central disc reserved for the (big) hat
+    min_tt = NET_ICON + 26  # trick-to-trick clearance
+    keepout = 380  # central disc reserved for the (big) hat
     margin = 90
     keys = list(tpos)
     for _ in range(420):
@@ -540,7 +540,7 @@ def cluster_layout(names, seed, W, H):
                 p[0], p[1] = ccx + dx / d * t_min[c], ccy + dy / d * t_min[c]
             elif d > t_max[c]:
                 p[0], p[1] = ccx + dx / d * t_max[c], ccy + dy / d * t_max[c]
-            for c2 in cats:                                   # keep off other clusters' pills
+            for c2 in cats:  # keep off other clusters' pills
                 if c2 == c:
                     continue
                 ox, oy = cpos[c2]
@@ -549,7 +549,7 @@ def cluster_layout(names, seed, W, H):
                 clear = pill_half_w(c2) + NET_ICON / 2 + 20
                 if ed < clear:
                     p[0], p[1] = ox + ex / ed * clear, oy + ey / ed * clear
-            gx, gy = p[0] - cx, p[1] - cy                      # keep clear of the central hat
+            gx, gy = p[0] - cx, p[1] - cy  # keep clear of the central hat
             gd = math.hypot(gx, gy) or 0.01
             if gd < keepout:
                 p[0], p[1] = cx + gx / gd * keepout, cy + gy / gd * keepout
@@ -558,7 +558,7 @@ def cluster_layout(names, seed, W, H):
     return cpos, tpos, members, cats
 
 
-PILL_FS = 36            # category pill font size (px in the 1650 box)
+PILL_FS = 36  # category pill font size (px in the 1650 box)
 
 
 def pill_half_w(name):
@@ -572,13 +572,13 @@ def cluster_body(cpos, tpos, members, cats, rings=True):
     pal = category_palette()
     c0 = NET_W / 2
     body = ""
-    for c in cats:                                           # category → central hub links
+    for c in cats:  # category → central hub links
         col, (ccx, ccy) = pal[c], cpos[c]
         body += (
             f'<line x1="{c0:.1f}" y1="{c0:.1f}" x2="{ccx:.1f}" y2="{ccy:.1f}" '
             f'stroke="{col}" stroke-width="6" opacity="0.55"/>'
         )
-    for c in cats:                                           # coloured trick→category links
+    for c in cats:  # coloured trick→category links
         col, (ccx, ccy) = pal[c], cpos[c]
         for n in members[c]:
             x, y = tpos[n]
@@ -589,7 +589,7 @@ def cluster_body(cpos, tpos, members, cats, rings=True):
     # central bag-of-tricks logo (big), on top of the spokes
     hs = 0.85
     body += f'<g transform="translate({c0 - 400 * hs:.0f},{c0 - 400 * hs:.0f}) scale({hs})">{hat_inner()}</g>'
-    for c in cats:                                           # trick icons (optionally ringed)
+    for c in cats:  # trick icons (optionally ringed)
         col = pal[c]
         for n in members[c]:
             x, y = tpos[n]
@@ -605,7 +605,7 @@ def cluster_body(cpos, tpos, members, cats, rings=True):
                 f'<text x="{x:.1f}" y="{y + r + 30:.1f}" font-family="{MONOFONT}" '
                 f'font-size="28" font-weight="600" fill="{INK}" text-anchor="middle">{n}</text>'
             )
-    for c in cats:                                          # category pill hubs, on top
+    for c in cats:  # category pill hubs, on top
         x, y = cpos[c]
         col = pal[c]
         hw, hh = pill_half_w(c), 34
@@ -649,16 +649,20 @@ def cluster_frames(tricks, seed, frames, amp=14.0, rings=True):
 # shows a terminal-style card with the catchphrase + full description.
 # --------------------------------------------------------------------------- #
 
+
 def invert(markup):
     """Swap the black/white palette so an icon reads on a dark background:
     the disc becomes light, the glyph becomes the page background colour."""
     return (
-        markup.replace("#111111", "\0L").replace("#ffffff", "\0D").replace("#fff", "\0D")
-        .replace("\0L", WEB_FG).replace("\0D", WEB_BG)
+        markup.replace("#111111", "\0L")
+        .replace("#ffffff", "\0D")
+        .replace("#fff", "\0D")
+        .replace("\0L", WEB_FG)
+        .replace("\0D", WEB_BG)
     )
 
 
-WEB_PILL_FS = 18         # category pill font size on the page (px)
+WEB_PILL_FS = 18  # category pill font size on the page (px)
 
 
 def web_pill_half(name):
@@ -693,8 +697,7 @@ def web_html(tricks, seed):
             f"</g>"
         )
     tedges_svg = "".join(
-        f'<line class="te" id="te{idx}" stroke="{pal[cat_of[n]]}"/>'
-        for idx, n in enumerate(names)
+        f'<line class="te" id="te{idx}" stroke="{pal[cat_of[n]]}"/>' for idx, n in enumerate(names)
     )
     cedges_svg = "".join(
         f'<line class="ce" id="ce{k}" stroke="{pal[c]}"/>' for k, c in enumerate(cats)
@@ -712,8 +715,13 @@ def web_html(tricks, seed):
     hat = f'<g class="hat" id="hat">{invert(hat_inner())}</g>'
 
     tdata = [
-        {"name": n, "cat": cat_of[n], "color": pal[cat_of[n]],
-         "catchphrase": full[n]["catchphrase"], "description": full[n]["description"]}
+        {
+            "name": n,
+            "cat": cat_of[n],
+            "color": pal[cat_of[n]],
+            "catchphrase": full[n]["catchphrase"],
+            "description": full[n]["description"],
+        }
         for n in names
     ]
     cdata = []
@@ -724,8 +732,7 @@ def web_html(tricks, seed):
     catof = [catidx[cat_of[n]] for n in names]
 
     return (
-        WEB_TEMPLATE
-        .replace("__BG__", WEB_BG)
+        WEB_TEMPLATE.replace("__BG__", WEB_BG)
         .replace("__FG__", WEB_FG)
         .replace("__HAT__", hat)
         .replace("__CEDGES_SVG__", cedges_svg)
@@ -1177,11 +1184,17 @@ def main(argv=None):
         help="what to build (default: all)",
     )
     ap.add_argument("--renderer", choices=["auto", "cairosvg", "convert"], default="auto")
-    ap.add_argument("--no-category-nodes", action="store_true",
-                    help="network/animation: drop the category clusters and fall back to the "
-                         "original randomly-connected graph")
-    ap.add_argument("--no-rings", action="store_true",
-                    help="clusters graph: drop the per-category coloured ring on each trick")
+    ap.add_argument(
+        "--no-category-nodes",
+        action="store_true",
+        help="network/animation: drop the category clusters and fall back to the "
+        "original randomly-connected graph",
+    )
+    ap.add_argument(
+        "--no-rings",
+        action="store_true",
+        help="clusters graph: drop the per-category coloured ring on each trick",
+    )
     ap.add_argument("--seed", type=int, default=42, help="RNG seed for layout")
     ap.add_argument("--frames", type=int, default=48, help="animation frame count")
     ap.add_argument("--gif-size", type=int, default=720, help="animation pixel size")
@@ -1218,13 +1231,19 @@ def main(argv=None):
     graph = "clusters" if clusters else "random"
     if "network" in targets:
         print(f"network (graph={graph}, rings={rings}, seed={args.seed}):")
-        svg = cluster_svg(tricks, args.seed, rings) if clusters \
+        svg = (
+            cluster_svg(tricks, args.seed, rings)
+            if clusters
             else network_svg(tricks, args.seed, rings)
+        )
         render(svg, os.path.join(ASSETS, "bag-of-tricks-network.png"), 1650, 1650, renderer)
     if "animation" in targets:
         print(f"animation (graph={graph}, rings={rings}, seed={args.seed}, {args.frames} frames):")
-        svgs = cluster_frames(tricks, args.seed, args.frames, rings=rings) \
-            if clusters else network_frames(tricks, args.seed, args.frames, rings=rings)
+        svgs = (
+            cluster_frames(tricks, args.seed, args.frames, rings=rings)
+            if clusters
+            else network_frames(tricks, args.seed, args.frames, rings=rings)
+        )
         render_gif(
             svgs,
             os.path.join(ASSETS, "bag-of-tricks-network.gif"),

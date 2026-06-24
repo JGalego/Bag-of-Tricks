@@ -14,14 +14,21 @@
     <path d="M512 250 C512 262 500 274 488 274 C500 274 512 286 512 298 C512 286 524 274 536 274 C524 274 512 262 512 250 Z"/>
   </g>
 
-  <!-- top hat (the bag of tricks) -->
+  <!-- top hat (the bag of tricks), with a cylindrical, dimensional crown -->
   <g>
-    <!-- brim -->
-    <ellipse cx="400" cy="500" rx="215" ry="44" fill="#111111"/>
-    <!-- crown, flared slightly at the top -->
-    <path d="M285 470 L268 300 L532 300 L515 470 Z" fill="#111111"/>
-    <!-- hat band -->
-    <path d="M295 452 L505 452 L501 488 L299 488 Z" fill="#ffffff"/>
+    <!-- brim ellipse + a faint top-surface highlight catching light on the sides -->
+    <ellipse cx="400" cy="500" rx="222" ry="46" fill="#111111"/>
+    <ellipse cx="400" cy="491" rx="208" ry="38" fill="#ffffff" opacity="0.10"/>
+    <!-- crown body: a slightly tapered cylinder, curved where it meets the brim -->
+    <path d="M278 300 L296 470 Q400 494 504 470 L522 300 Z" fill="#111111"/>
+    <!-- left-side sheen, to read as a glossy curved surface -->
+    <path d="M308 306 Q289 388 309 468 L335 472 Q317 392 331 310 Z" fill="#ffffff" opacity="0.12"/>
+    <!-- white hat band, curved to wrap the crown -->
+    <path d="M293 446 Q400 470 507 446 L503 482 Q400 506 297 482 Z" fill="#ffffff"/>
+    <!-- closed top cap (ellipse) + a rim highlight to define the 3D opening -->
+    <ellipse cx="400" cy="300" rx="122" ry="20" fill="#111111"/>
+    <path d="M300 296 Q338 281 402 280" fill="none" stroke="#ffffff"
+          stroke-width="5" stroke-linecap="round" opacity="0.8"/>
   </g>
 
   <!-- wordmark -->
