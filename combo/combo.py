@@ -59,6 +59,7 @@ SHAPES: dict[str, tuple[str, bool]] = {
     "fold": ("analyzer", True),
     "alibi": ("analyzer", True),
     "mugshot": ("analyzer", False),
+    "squeeze": ("analyzer", True),
     "bluff": ("analyzer", False),
     "tollbooth": ("analyzer", False),
     "grill": ("analyzer", False),
