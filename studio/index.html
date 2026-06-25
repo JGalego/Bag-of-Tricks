@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bag of tricks — studio</title>
+<style>
+  :root{
+    --bg:#0d1117; --fg:#e6edf3; --panel:#161b22; --line:#30363d;
+    --muted:#8b949e; --accent:#58a6ff; --accent2:#3fb950; --warn:#d4a017; --bad:#e5534b;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,'DejaVu Sans Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;width:100%;overflow:hidden;
+    background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:13px}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column}
+  header{padding:10px 18px;border-bottom:1px solid var(--line);display:flex;
+    gap:12px 18px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  header .hl{display:flex;flex-direction:column;gap:1px;min-width:0}
+  header .t{font-weight:700;letter-spacing:.5px}
+  header .t .p{color:var(--accent)}
+  header .s{color:var(--muted);font-size:12px}
+  header .hr{display:flex;align-items:center;gap:8px}
+  .btn{font-family:var(--mono);font-size:12.5px;color:var(--fg);background:#1b2230;
+    border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn:hover{border-color:var(--muted)}
+  .btn.primary{color:var(--bg);background:var(--accent2);border-color:var(--accent2);font-weight:700}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn .sp{display:inline-block;width:11px;height:11px;border:2px solid rgba(13,17,23,.4);
+    border-top-color:var(--bg);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-1px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #main{flex:1;display:flex;min-height:0;position:relative}
+
+  /* palette */
+  #palette{width:212px;flex:none;border-right:1px solid var(--line);overflow-y:auto;
+    padding:10px 10px 30px;background:#0f141b}
+  #palette .ph{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.6px;
+    margin:14px 4px 6px;display:flex;align-items:center;gap:7px}
+  #palette .ph:first-child{margin-top:2px}
+  #palette .ph .dot{width:9px;height:9px;border-radius:50%}
+  .chip{display:flex;align-items:center;gap:7px;padding:7px 8px;margin:4px 0;border-radius:8px;
+    border:1px solid var(--line);background:var(--panel);cursor:grab;user-select:none}
+  .chip:hover{border-color:var(--muted);background:#1b2230}
+  .chip:active{cursor:grabbing}
+  .chip .nm{font-weight:600}
+  .chip .badge{margin-left:auto;display:flex;gap:4px;align-items:center}
+  .chip .sh{font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:5px;
+    padding:1px 5px}
+  .chip .mk{font-size:11px;opacity:.8}
+  .legend{margin:16px 4px 0;color:var(--muted);font-size:11px;line-height:1.7}
+  .legend b{color:var(--fg);font-weight:600}
+
+  /* stage / canvas */
+  #stage{flex:1;position:relative;overflow:auto;min-width:0;background:var(--bg)}
+  #content{position:relative;width:2600px;height:1500px}        /* sizer (scaled in JS) */
+  #zoom{position:absolute;top:0;left:0;width:2600px;height:1500px;transform-origin:0 0}
+  #zoom .grid{position:absolute;inset:0;pointer-events:none;opacity:.18;
+    background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:26px 26px}
+  #edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  #edges path.edge{fill:none;stroke:var(--muted);stroke-width:2.6;opacity:.85;
+    pointer-events:stroke;cursor:pointer;transition:stroke .15s,opacity .15s,stroke-width .15s}
+  #edges path.edge:not(.temp){marker-end:url(#arrow)}
+  #edges path.edge:hover{stroke:var(--bad);opacity:1;stroke-width:3.2}
+  #edges path.lit{stroke:var(--accent);stroke-width:3.6;opacity:1}
+  #edges path.temp{stroke:var(--accent);stroke-dasharray:5 4;opacity:.95;pointer-events:none}
+  #arrow path{fill:context-stroke}   /* arrowhead inherits the edge's stroke colour */
+
+  /* zoom control (floats over the stage) */
+  #zoomctl{position:absolute;left:226px;bottom:14px;display:flex;gap:2px;z-index:30;
+    background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:3px;
+    box-shadow:0 8px 24px rgba(0,0,0,.45)}
+  #zoomctl .zb{font-family:var(--mono);font-size:13px;color:var(--fg);background:transparent;
+    border:0;border-radius:6px;padding:5px 9px;cursor:pointer;min-width:30px}
+  #zoomctl .zb:hover{background:#1b2230}
+  #zoomctl #zoomLbl{min-width:48px;font-size:12px;color:var(--muted)}
+
+  /* dropdown menu (examples) */
+  .menu-wrap{position:relative;display:inline-block}
+  .menu{position:absolute;right:0;top:calc(100% + 6px);width:330px;max-height:62vh;overflow:auto;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px;z-index:60;
+    display:none;box-shadow:0 14px 40px rgba(0,0,0,.6)}
+  .menu.open{display:block}
+  .menu .it{display:block;width:100%;text-align:left;background:transparent;border:0;border-radius:7px;
+    padding:8px 9px;cursor:pointer;color:var(--fg)}
+  .menu .it:hover{background:#1b2230}
+  .menu .it b{display:block;font-size:13px;margin-bottom:2px}
+  .menu .it span{display:block;color:var(--muted);font-size:11.5px;line-height:1.4;white-space:normal}
+  .menu .empty{color:var(--muted);font-size:12px;padding:8px}
+
+  .node{position:absolute;width:172px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.45);user-select:none}
+  .node.io{width:240px}
+  .node .hd{display:flex;align-items:center;gap:7px;padding:8px 10px;cursor:grab;
+    border-bottom:1px solid var(--line);border-radius:10px 10px 0 0}
+  .node .hd:active{cursor:grabbing}
+  .node .hd .nm{font-weight:700}
+  .node .hd .cap{color:var(--muted);font-size:10.5px;margin-left:2px;overflow:hidden;
+    white-space:nowrap;text-overflow:ellipsis}
+  .node .hd .x{margin-left:auto;color:var(--muted);cursor:pointer;font-size:14px;line-height:1}
+  .node .hd .x:hover{color:var(--bad)}
+  .node .bd{padding:8px 10px}
+  .node .bd input{width:100%;font-family:var(--mono);font-size:11.5px;color:var(--fg);
+    background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:5px 7px}
+  .node .bd input:focus{outline:none;border-color:var(--accent)}
+  .node textarea{width:100%;height:120px;resize:vertical;font-family:var(--mono);font-size:12px;
+    color:var(--fg);background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:7px}
+  .node textarea:focus{outline:none;border-color:var(--accent)}
+  .node .out-view{max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-word;
+    font-size:11.5px;color:var(--fg);background:#0d1117;border:1px solid var(--line);
+    border-radius:6px;padding:7px;min-height:40px}
+  .node .out-view .ob{margin:0 0 8px;padding:0 0 8px;border-bottom:1px dashed var(--line)}
+  .node .out-view .ob:last-child{border:0;margin:0;padding:0}
+  .node .out-view .lab{color:var(--muted);font-size:10.5px;margin-bottom:3px}
+  .node .meta{display:flex;gap:6px;align-items:center;margin-top:7px;font-size:10.5px;color:var(--muted)}
+  .node .meta .st{padding:1px 6px;border-radius:5px;border:1px solid var(--line)}
+  .port{position:absolute;width:13px;height:13px;border-radius:50%;background:#0d1117;
+    border:2px solid var(--muted);top:18px;cursor:crosshair;z-index:3}
+  .port:hover{border-color:var(--accent);background:var(--accent)}
+  .port.out{right:-7px}
+  .port.in{left:-7px}
+  .node.io .port{top:50%;transform:translateY(-50%)}
+
+  /* status tints */
+  .node.s-ok{border-color:var(--accent2)} .node.s-ok .hd{background:rgba(63,185,80,.12)}
+  .node.s-abort,.node.s-error{border-color:var(--bad)} .node.s-abort .hd,.node.s-error .hd{background:rgba(229,83,75,.14)}
+  .node.s-timeout{border-color:var(--warn)} .node.s-timeout .hd{background:rgba(212,160,23,.14)}
+  .node.s-skip{opacity:.55}
+  .node.unwired{border-style:dashed;opacity:.7}
+  .node.dim{opacity:.32}
+  .node.trace{box-shadow:0 0 0 2px var(--accent),0 8px 24px rgba(0,0,0,.5)}
+  .st.ok{color:var(--accent2);border-color:var(--accent2)}
+  .st.abort,.st.error{color:var(--bad);border-color:var(--bad)}
+  .st.timeout{color:var(--warn);border-color:var(--warn)}
+  .st.skip{color:var(--muted)}
+
+  /* detail drawer */
+  #drawer{position:absolute;top:0;right:0;height:100%;width:380px;max-width:88vw;
+    background:var(--panel);border-left:1px solid var(--line);transform:translateX(102%);
+    transition:transform .18s;z-index:40;display:flex;flex-direction:column;
+    box-shadow:-14px 0 40px rgba(0,0,0,.5)}
+  #drawer.open{transform:none}
+  #drawer .dh{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line)}
+  #drawer .dh .nm{font-weight:700}
+  #drawer .dh .x{margin-left:auto;cursor:pointer;color:var(--muted);font-size:16px}
+  #drawer .dh .x:hover{color:var(--fg)}
+  #drawer .db{padding:12px 14px;overflow:auto}
+  #drawer h4{margin:14px 0 5px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  #drawer h4:first-child{margin-top:0}
+  #drawer pre{margin:0;white-space:pre-wrap;word-break:break-word;background:#0d1117;
+    border:1px solid var(--line);border-radius:7px;padding:9px;font-size:11.5px;max-height:240px;overflow:auto}
+  #toast{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:#1b2230;
+    border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:12px;opacity:0;
+    transition:opacity .2s;pointer-events:none;z-index:50}
+  #toast.show{opacity:1}
+  #toast.err{border-color:var(--bad);color:var(--bad)}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <div class="hl">
+      <span class="t">bag of tricks · <span class="p">studio</span></span>
+      <span class="s">rig the whole act — drag tricks in, wire them up, run the routine &amp; trace the flow</span>
+    </div>
+    <div class="hr">
+      <div class="menu-wrap">
+        <button class="btn" id="examplesBtn" title="load an example pipeline">examples ▾</button>
+        <div class="menu" id="examplesMenu"></div>
+      </div>
+      <button class="btn" id="sampleBtn" title="load a sample routine">sample</button>
+      <button class="btn" id="openBtn" title="open a pipeline from a .json file">open</button>
+      <button class="btn" id="saveBtn" title="save this pipeline to a .json file">save</button>
+      <button class="btn" id="clearBtn" title="remove all trick nodes">clear</button>
+      <button class="btn primary" id="runBtn">▶ run</button>
+      <input type="file" id="fileInput" accept=".md,.markdown,.mmd,.txt,.json" hidden>
+    </div>
+  </header>
+  <div id="main">
+    <div id="palette"></div>
+    <div id="stage">
+      <div id="content">
+        <div id="zoom">
+          <div class="grid"></div>
+          <svg id="edges">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5"
+                      markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z"/>
+              </marker>
+            </defs>
+          </svg>
+          <!-- nodes injected here -->
+        </div>
+      </div>
+    </div>
+    <div id="drawer">
+      <div class="dh"><span class="nm" id="drawerName"></span>
+        <span class="cap s" id="drawerCap"></span><span class="x" id="drawerX">✕</span></div>
+      <div class="db" id="drawerBody"></div>
+    </div>
+    <div id="toast"></div>
+    <div id="zoomctl">
+      <button class="zb" id="zoomOut" title="zoom out">−</button>
+      <button class="zb" id="zoomLbl" title="reset to 100%">100%</button>
+      <button class="zb" id="zoomIn" title="zoom in">+</button>
+    </div>
+  </div>
+</div>
+<script>
+const INPUT_ID = "__input__", OUTPUT_ID = "__output__";
+const $ = (s, r=document) => r.querySelector(s);
+const el = (tag, cls, html) => { const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; };
+
+const state = {
+  tricks: [], cats: {}, byName: {},
+  nodes: new Map(),     // id -> {id, type, trick, flags, x, y}
+  edges: [],            // {id, source, target}
+  seq: 0,
+  linking: null,        // {source, path}
+  results: null,
+  zoom: 1,
+};
+
+const content = $("#content"), zoom = $("#zoom"), edgesSvg = $("#edges"), stage = $("#stage");
+const BASE_W = 2600, BASE_H = 1500, ZMIN = 0.4, ZMAX = 2.5;
+const IO_DEFAULTS = { input:{x:40, y:90}, output:{x:1100, y:90} };
+
+/* ---------- zoom ---------- */
+function setZoom(z, cx, cy){
+  z = Math.min(ZMAX, Math.max(ZMIN, z));
+  const r = stage.getBoundingClientRect();
+  if(cx==null){ cx = r.left + stage.clientWidth/2; cy = r.top + stage.clientHeight/2; }
+  const old = state.zoom;
+  const baseX = (cx - r.left + stage.scrollLeft)/old;   // keep the point under the cursor fixed
+  const baseY = (cy - r.top  + stage.scrollTop )/old;
+  state.zoom = z;
+  zoom.style.transform = `scale(${z})`;
+  content.style.width  = (BASE_W*z)+"px";
+  content.style.height = (BASE_H*z)+"px";
+  stage.scrollLeft = baseX*z - (cx - r.left);
+  stage.scrollTop  = baseY*z - (cy - r.top);
+  $("#zoomLbl").textContent = Math.round(z*100)+"%";
+}
+
+/* ---------- boot ---------- */
+async function boot(){
+  try{
+    const r = await fetch("/api/tricks");
+    const data = await r.json();
+    state.tricks = data.tricks; state.cats = data.cats;
+    state.byName = Object.fromEntries(state.tricks.map(t=>[t.name,t]));
+  }catch(e){
+    toast("can't reach the studio server — run: python studio/server.py", true);
+    return;
+  }
+  buildPalette();
+  ensureIO();
+  draw();
+}
+
+function buildPalette(){
+  const pal = $("#palette");
+  const order = ["security","output","debugging","workflow","productivity"];
+  const byCat = {};
+  state.tricks.forEach(t => (byCat[t.cat]=byCat[t.cat]||[]).push(t));
+  order.filter(c=>byCat[c]).forEach(cat=>{
+    const meta = state.cats[cat] || {color:"#888"};
+    const h = el("div","ph");
+    h.append(Object.assign(el("span","dot"),{}) , document.createTextNode(cat));
+    h.querySelector(".dot").style.background = meta.color;
+    pal.append(h);
+    byCat[cat].forEach(t=>pal.append(chip(t)));
+  });
+  pal.append(legend());
+}
+function chip(t){
+  const c = el("div","chip");
+  c.draggable = true;
+  c.style.borderLeft = `3px solid ${state.cats[t.cat].color}`;
+  c.innerHTML = `<span class="nm">${t.name}</span>
+    <span class="badge"><span class="sh">${t.shape==="filter"?"▷ filter":"■ sink"}</span>
+    ${t.gate?'<span class="mk" title="has a gate mode (--check) that can abort the branch">⛔</span>':''}
+    ${t.net?'<span class="mk" title="calls a model / the network — slow, may need an API key">☁</span>':''}</span>`;
+  c.title = t.catchphrase + "  —  " + t.blurb;
+  c.addEventListener("dragstart", e => e.dataTransfer.setData("trick", t.name));
+  return c;
+}
+function legend(){
+  const l = el("div","legend");
+  l.innerHTML = `<b>how to</b><br>· drag a trick onto the canvas<br>
+    · drag from a <b>○</b> right-port to a left-port to wire<br>
+    · feed nodes from <b>input</b>; leaves reach <b>output</b><br>
+    · ▶ run, then hover to trace · click a node for detail<br>
+    <br><b>⛔</b> gate · <b>☁</b> network/LLM · single input per node`;
+  return l;
+}
+
+/* ---------- input/output boxes ---------- */
+function ensureIO(){
+  if(!state.nodes.has(INPUT_ID))
+    state.nodes.set(INPUT_ID, {id:INPUT_ID, type:"input", x:IO_DEFAULTS.input.x, y:IO_DEFAULTS.input.y,
+      text:"Hi there! 😊 As an AI, I'd be happy to help — your key is sk-ABCDEFGH1234567890ondefgh and—well, it's not just code, it's a tapestry."});
+  if(!state.nodes.has(OUTPUT_ID))
+    state.nodes.set(OUTPUT_ID, {id:OUTPUT_ID, type:"output", x:IO_DEFAULTS.output.x, y:IO_DEFAULTS.output.y});
+}
+
+/* ---------- node creation ---------- */
+function addTrickNode(name, x, y){
+  const id = "n" + (++state.seq);
+  state.nodes.set(id, {id, type:"trick", trick:name, flags:"", x, y});
+  draw();
+  return id;
+}
+function removeNode(id){
+  state.nodes.delete(id);
+  state.edges = state.edges.filter(e=>e.source!==id && e.target!==id);
+  if(openDrawerId===id) closeDrawer();
+  draw();
+}
+
+/* ---------- drawing ---------- */
+function draw(){
+  // nodes
+  const seen = new Set();
+  for(const n of state.nodes.values()){
+    seen.add(n.id);
+    let d = document.getElementById(n.id);
+    if(!d){ d = buildNode(n); zoom.append(d); }
+    d.style.left = n.x+"px"; d.style.top = n.y+"px";
+    updateNodeView(n, d);
+  }
+  [...zoom.querySelectorAll(".node")].forEach(d=>{ if(!seen.has(d.id)) d.remove(); });
+  drawEdges();
+}
+
+function buildNode(n){
+  const d = el("div","node"); d.id = n.id;
+  if(n.type!=="trick") d.classList.add("io");
+
+  if(n.type==="input"){
+    d.innerHTML += `<div class="hd"><span class="nm">input</span><span class="cap">the head of the pipe</span></div>`;
+    const bd = el("div","bd"); const ta = el("textarea"); ta.value=n.text;
+    ta.addEventListener("input",()=>{ n.text=ta.value; });
+    bd.append(ta); d.append(bd);
+  } else if(n.type==="output"){
+    d.innerHTML += `<div class="hd"><span class="nm">output</span><span class="cap">what the leaves emit</span></div>`;
+    const bd = el("div","bd"); const v = el("div","out-view","<span class='cap'>run the routine to see output</span>");
+    v.id = "outview"; bd.append(v); d.append(bd);
+  } else {
+    const t = state.byName[n.trick] || {cat:"output",catchphrase:""};
+    d.style.borderTop = `2px solid ${(state.cats[t.cat]||{}).color||'#888'}`;
+    d.innerHTML += `<div class="hd"><span class="nm">${n.trick}</span><span class="x" title="delete">✕</span></div>`;
+    const bd = el("div","bd");
+    const inp = el("input"); inp.placeholder = "flags, e.g. " + ((t.flags&&t.flags[0])||"--json");
+    inp.value = n.flags;
+    inp.addEventListener("input",()=>{ n.flags=inp.value; });
+    inp.addEventListener("pointerdown",e=>e.stopPropagation());
+    bd.append(inp);
+    const meta = el("div","meta"); meta.innerHTML = `<span class="cap">${t.catchphrase||""}</span>`;
+    bd.append(meta);
+    d.append(bd);
+    d.querySelector(".x").addEventListener("click",e=>{e.stopPropagation();removeNode(n.id);});
+  }
+  // ports are appended LAST: setting innerHTML above re-parses the subtree, so
+  // any element added before it (and its listeners) would be silently dropped.
+  if(n.type==="input" || n.type==="trick") d.append(portEl(n.id,"out"));
+  if(n.type==="output" || n.type==="trick") d.append(portEl(n.id,"in"));
+  // drag node by header
+  const hd = d.querySelector(".hd");
+  hd.addEventListener("pointerdown", e => startNodeDrag(e, n));
+  // click trick node -> detail
+  if(n.type==="trick") d.addEventListener("click", e=>{ if(!dragMoved) openDrawer(n.id); });
+  // hover -> trace ancestry
+  d.addEventListener("pointerenter",()=>highlightTrace(n.id));
+  d.addEventListener("pointerleave",()=>clearTrace());
+  return d;
+}
+
+function portEl(id, kind){
+  const p = el("div","port "+kind);
+  p.dataset.node = id; p.dataset.kind = kind;
+  if(kind==="out") p.addEventListener("pointerdown", e=>startLink(e,id));
+  return p;
+}
+
+function updateNodeView(n, d){
+  d.className = "node" + (n.type!=="trick" ? " io" : "");
+  if(n.type==="trick"){
+    const wired = isReachableFromInput(n.id);
+    if(!wired) d.classList.add("unwired");
+    const res = state.results && state.results.nodes[n.id];
+    if(res){
+      d.classList.add("s-"+res.status);
+      let meta = d.querySelector(".meta");
+      const ms = res.elapsed!=null ? (res.elapsed*1000).toFixed(0)+"ms" : "";
+      meta.innerHTML = `<span class="st ${res.status}">${res.status}</span>
+        <span>exit ${res.code==null?"–":res.code}</span><span>${ms}</span>`;
+    }
+  }
+}
+
+/* ---------- edges ---------- */
+function portCenter(nodeId, kind){
+  const node = state.nodes.get(nodeId);
+  const d = document.getElementById(nodeId);
+  if(!d) return {x:node.x, y:node.y};
+  const p = d.querySelector(`.port.${kind}`);
+  if(!p) return {x:node.x + d.offsetWidth/2, y:node.y + d.offsetHeight/2};
+  return { x: node.x + p.offsetLeft + p.offsetWidth/2,
+           y: node.y + p.offsetTop  + p.offsetHeight/2 };
+}
+function edgePath(a, b){
+  const dx = Math.max(40, Math.abs(b.x-a.x)*0.5);
+  return `M${a.x},${a.y} C${a.x+dx},${a.y} ${b.x-dx},${b.y} ${b.x},${b.y}`;
+}
+function drawEdges(){
+  edgesSvg.querySelectorAll(":scope > path").forEach(p=>p.remove());  // keep <defs>/arrowhead
+  for(const e of state.edges){
+    const a = portCenter(e.source,"out"), b = portCenter(e.target,"in");
+    const end = {x:b.x-9, y:b.y};   // stop short of the port so the arrowhead points into it
+    const p = document.createElementNS("http://www.w3.org/2000/svg","path");
+    p.setAttribute("d", edgePath(a,end));
+    p.setAttribute("class","edge");
+    p.dataset.id = e.id;
+    p.addEventListener("click",ev=>{ ev.stopPropagation(); removeEdge(e.id); });
+    edgesSvg.append(p);
+  }
+}
+function removeEdge(id){ state.edges = state.edges.filter(e=>e.id!==id); draw(); }
+
+/* ---------- node dragging ---------- */
+let dragMoved = false;
+function startNodeDrag(e, n){
+  if(e.target.classList.contains("x")) return;
+  e.preventDefault();
+  dragMoved = false;
+  const sx=e.clientX, sy=e.clientY, ox=n.x, oy=n.y;
+  const move = ev=>{
+    const dx=(ev.clientX-sx)/state.zoom, dy=(ev.clientY-sy)/state.zoom;
+    if(Math.abs(dx)+Math.abs(dy)>3) dragMoved=true;
+    n.x = Math.max(0, ox+dx); n.y = Math.max(0, oy+dy);
+    const d=document.getElementById(n.id); d.style.left=n.x+"px"; d.style.top=n.y+"px";
+    drawEdges();
+  };
+  const up = ()=>{ document.removeEventListener("pointermove",move); document.removeEventListener("pointerup",up);
+    setTimeout(()=>dragMoved=false, 0); };
+  document.addEventListener("pointermove",move); document.addEventListener("pointerup",up);
+}
+
+/* ---------- linking (wiring edges) ---------- */
+function startLink(e, source){
+  e.preventDefault(); e.stopPropagation();
+  const tmp = document.createElementNS("http://www.w3.org/2000/svg","path");
+  tmp.setAttribute("class","edge temp"); edgesSvg.append(tmp);
+  const a = portCenter(source,"out");
+  const move = ev=>{
+    const pt = toContent(ev.clientX, ev.clientY);
+    tmp.setAttribute("d", edgePath(a, pt));
+  };
+  const up = ev=>{
+    document.removeEventListener("pointermove",move); document.removeEventListener("pointerup",up);
+    tmp.remove();
+    const port = document.elementFromPoint(ev.clientX,ev.clientY);
+    if(port && port.classList && port.classList.contains("in"))
+      tryConnect(source, port.dataset.node);
+  };
+  document.addEventListener("pointermove",move); document.addEventListener("pointerup",up);
+}
+function toContent(clientX, clientY){
+  const r = zoom.getBoundingClientRect();   // r reflects the scaled layer; divide back out the zoom
+  return { x: (clientX - r.left)/state.zoom, y: (clientY - r.top)/state.zoom };
+}
+function tryConnect(source, target){
+  if(source===target) return;
+  if(target===INPUT_ID || source===OUTPUT_ID){ toast("input has no inputs; output has no outputs", true); return; }
+  if(source===INPUT_ID && target===OUTPUT_ID){ toast("wire a trick between input and output", true); return; }
+  if(state.edges.some(e=>e.source===source && e.target===target)) return;   // already wired
+  // single input per node — but output is a sink that collects many leaves
+  if(target!==OUTPUT_ID) state.edges = state.edges.filter(e=>e.target!==target);
+  // avoid cycles
+  if(createsCycle(source, target)){ toast("that would make a loop", true); return; }
+  state.edges.push({id:"e"+(++state.seq), source, target});
+  draw();
+}
+function createsCycle(source, target){
+  // would adding source->target let us reach source from target?
+  const adj = {}; state.edges.forEach(e=>(adj[e.source]=adj[e.source]||[]).push(e.target));
+  (adj[source]=adj[source]||[]).push(target);
+  const seen=new Set(); const stack=[target];
+  while(stack.length){ const n=stack.pop(); if(n===source) return true;
+    if(seen.has(n))continue; seen.add(n); (adj[n]||[]).forEach(m=>stack.push(m)); }
+  return false;
+}
+
+/* ---------- reachability / topology ---------- */
+function parentsOf(id){ return state.edges.filter(e=>e.target===id).map(e=>e.source); }
+function childrenOf(id){ return state.edges.filter(e=>e.source===id).map(e=>e.target); }
+function isReachableFromInput(id){
+  const seen=new Set(); const stack=[INPUT_ID];
+  while(stack.length){ const n=stack.pop(); if(n===id) return true;
+    if(seen.has(n))continue; seen.add(n); childrenOf(n).forEach(c=>stack.push(c)); }
+  return false;
+}
+
+/* ---------- trace on hover ---------- */
+function highlightTrace(id){
+  if(state.linking) return;
+  const chain = new Set(); const eids = new Set();
+  let cur = id;
+  // single input -> walk the unique ancestor chain to input
+  const guard = new Set();
+  while(cur && !guard.has(cur)){
+    guard.add(cur); chain.add(cur);
+    const inEdge = state.edges.find(e=>e.target===cur);
+    if(!inEdge) break;
+    eids.add(inEdge.id); cur = inEdge.source; chain.add(cur);
+  }
+  content.querySelectorAll(".node").forEach(d=>{
+    if(d.id===INPUT_ID || d.id===OUTPUT_ID) return;
+    d.classList.toggle("dim", !chain.has(d.id));
+    d.classList.toggle("trace", chain.has(d.id));
+  });
+  edgesSvg.querySelectorAll("path.edge").forEach(p=>p.classList.toggle("lit", eids.has(p.dataset.id)));
+}
+function clearTrace(){
+  content.querySelectorAll(".node").forEach(d=>d.classList.remove("dim","trace"));
+  edgesSvg.querySelectorAll("path.edge").forEach(p=>p.classList.remove("lit"));
+}
+
+/* ---------- drawer ---------- */
+let openDrawerId = null;
+function openDrawer(id){
+  const n = state.nodes.get(id); if(!n) return;
+  openDrawerId = id;
+  const t = state.byName[n.trick]||{};
+  $("#drawerName").textContent = n.trick;
+  $("#drawerCap").textContent = t.catchphrase||"";
+  const res = state.results && state.results.nodes[id];
+  const body = $("#drawerBody");
+  if(!res){
+    body.innerHTML = `<p class="s">${t.blurb||""}</p><p class="s">run the routine to see this stage's output.</p>`;
+  } else {
+    const esc = s => (s||"").replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+    body.innerHTML =
+      `<div class="meta"><span class="st ${res.status}">${res.status}</span>
+         <span>exit ${res.code==null?"–":res.code}</span>
+         <span>${res.elapsed!=null?(res.elapsed*1000).toFixed(0)+"ms":""}</span></div>
+       ${res.reason?`<h4>note</h4><pre>${esc(res.reason)}</pre>`:""}
+       ${res.error?`<h4>error</h4><pre>${esc(res.error)}</pre>`:""}
+       <h4>stdout (flows downstream)</h4><pre>${esc(res.stdout)||"<span class='s'>— empty —</span>"}</pre>
+       ${res.stderr?`<h4>summary (stderr)</h4><pre>${esc(res.stderr)}</pre>`:""}`;
+  }
+  $("#drawer").classList.add("open");
+}
+function closeDrawer(){ openDrawerId=null; $("#drawer").classList.remove("open"); }
+$("#drawerX").addEventListener("click", closeDrawer);
+
+/* ---------- run ---------- */
+async function run(){
+  const input = state.nodes.get(INPUT_ID).text || "";
+  const live = [...state.nodes.values()].filter(n=>n.type==="trick" && isReachableFromInput(n.id));
+  if(!live.length){ toast("wire at least one trick from input", true); return; }
+  const liveIds = new Set(live.map(n=>n.id));
+  const nodes = live.map(n=>({id:n.id, trick:n.trick, flags:n.flags}));
+  const edges = state.edges
+    .filter(e=>liveIds.has(e.source) && liveIds.has(e.target))
+    .map(e=>({source:e.source, target:e.target}));
+
+  const btn = $("#runBtn"); btn.disabled=true; btn.innerHTML='<span class="sp"></span> running';
+  try{
+    const r = await fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({input, nodes, edges})});
+    const data = await r.json();
+    if(data.error){ toast(data.error, true); return; }
+    state.results = data;
+    await animateTrace(data);
+    renderOutput(data, liveIds);
+    if(openDrawerId) openDrawer(openDrawerId);
+    draw();
+  }catch(e){ toast("run failed: "+e.message, true); }
+  finally{ btn.disabled=false; btn.innerHTML="▶ run"; }
+}
+
+async function animateTrace(data){
+  // light up edges/nodes in execution order
+  draw();
+  for(const id of data.order){
+    const d = document.getElementById(id); if(!d) continue;
+    const res = data.nodes[id];
+    d.classList.add("s-"+res.status,"trace");
+    const inEdge = state.edges.find(e=>e.target===id);
+    if(inEdge){ const p = edgesSvg.querySelector(`path[data-id="${inEdge.id}"]`); if(p) p.classList.add("lit"); }
+    await sleep(120);
+    d.classList.remove("trace");
+  }
+  edgesSvg.querySelectorAll("path.edge").forEach(p=>p.classList.remove("lit"));
+}
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+function renderOutput(data, liveIds){
+  const view = $("#outview"); if(!view) return;
+  // explicit: nodes wired to OUTPUT; else implicit leaves among live nodes
+  let shownIds = state.edges.filter(e=>e.target===OUTPUT_ID && liveIds.has(e.source)).map(e=>e.source);
+  if(!shownIds.length) shownIds = data.outputs.map(o=>o.id);
+  if(!shownIds.length){ view.innerHTML = "<span class='cap'>no terminal nodes</span>"; return; }
+  const esc = s => (s||"").replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  view.innerHTML = shownIds.map(id=>{
+    const res = data.nodes[id]||{}; const n = state.nodes.get(id);
+    const body = res.status==="skip" ? "<span class='cap'>(branch aborted upstream)</span>"
+               : (esc(res.stdout) || "<span class='cap'>— empty —</span>");
+    return `<div class="ob"><div class="lab">${n?n.trick:id} · <span class="st ${res.status}">${res.status||"?"}</span></div>${body}</div>`;
+  }).join("");
+}
+
+/* ---------- misc ---------- */
+let toastT;
+function toast(msg, err){
+  const t=$("#toast"); t.textContent=msg; t.classList.toggle("err",!!err); t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600);
+}
+
+// drop from palette
+stage.addEventListener("dragover", e=>e.preventDefault());
+stage.addEventListener("drop", e=>{
+  e.preventDefault();
+  const name = e.dataTransfer.getData("trick"); if(!name) return;
+  const pt = toContent(e.clientX, e.clientY);
+  addTrickNode(name, Math.max(0,pt.x-86), Math.max(0,pt.y-20));
+});
+stage.addEventListener("click", e=>{
+  if(e.target.classList.contains("grid") || e.target===zoom || e.target===content || e.target===stage)
+    closeDrawer();
+});
+
+$("#runBtn").addEventListener("click", run);
+$("#clearBtn").addEventListener("click", ()=>{
+  [...state.nodes.keys()].forEach(id=>{ if(id!==INPUT_ID && id!==OUTPUT_ID) state.nodes.delete(id); });
+  state.edges = []; state.results = null;
+  // reset both boxes to their default, on-screen positions...
+  const inp = state.nodes.get(INPUT_ID), out = state.nodes.get(OUTPUT_ID);
+  inp.x = IO_DEFAULTS.input.x;  inp.y = IO_DEFAULTS.input.y;
+  out.x = IO_DEFAULTS.output.x; out.y = IO_DEFAULTS.output.y;
+  // ...and rebuild every node fresh so the output box drops its stale results
+  zoom.querySelectorAll(".node").forEach(d=>d.remove());
+  closeDrawer(); setZoom(1); stage.scrollTo(0,0); draw();
+});
+$("#sampleBtn").addEventListener("click", loadSample);
+
+/* ---------- auto-layout ----------
+   No coordinates are stored. On load we lay the DAG out in left-to-right
+   columns by longest-path depth from the input, centring each column. */
+function autoLayout(){
+  const depth = new Map();
+  const memo = id => {
+    if(depth.has(id)) return depth.get(id);
+    const ps = parentsOf(id);
+    const v = ps.length ? Math.max(...ps.map(memo)) + 1 : 0;
+    depth.set(id, v); return v;
+  };
+  [...state.nodes.keys()].forEach(memo);
+  const td = [...state.nodes.values()].filter(n=>n.type==="trick").map(n=>depth.get(n.id));
+  depth.set(OUTPUT_ID, (td.length ? Math.max(...td) : 0) + 1);
+  depth.set(INPUT_ID, 0);
+  const cols = new Map();
+  for(const n of state.nodes.values()){
+    const d = depth.get(n.id) || 0;
+    if(!cols.has(d)) cols.set(d, []);
+    cols.get(d).push(n);
+  }
+  const COLW = 270, ROWH = 150, X0 = 40, Y0 = 80;
+  const maxRows = Math.max(1, ...[...cols.values()].map(a=>a.length));
+  [...cols.keys()].sort((a,b)=>a-b).forEach(d=>{
+    const arr = cols.get(d).sort((a,b)=> a.id<b.id?-1:1);
+    arr.forEach((n,i)=>{
+      n.x = X0 + d*COLW;
+      n.y = Y0 + (i + (maxRows-arr.length)/2) * ROWH;
+    });
+  });
+}
+
+/* ---------- load a graph (shared by .md, the sample, and legacy .json) ---------- */
+function loadGraph({input, nodes, edges}){
+  state.nodes.clear(); state.edges = []; state.results = null; closeDrawer();
+  zoom.querySelectorAll(".node").forEach(d=>d.remove());
+  ensureIO();
+  if(typeof input === "string") state.nodes.get(INPUT_ID).text = input;
+  let skipped = 0, maxSeq = 0;
+  const num = id => { const m=/(\d+)/.exec(id||""); if(m) maxSeq=Math.max(maxSeq,+m[1]); };
+  (nodes||[]).forEach(n=>{
+    if(!n || !state.byName[n.trick]){ skipped++; return; }   // drop unknown tricks
+    const id = n.id || ("n"+(++state.seq));
+    state.nodes.set(id, {id, type:"trick", trick:n.trick, flags:n.flags||"", x:0, y:0});
+    num(id);
+  });
+  const ids = new Set(state.nodes.keys());
+  (edges||[]).forEach(e=>{
+    if(!e || !ids.has(e.source) || !ids.has(e.target)) return;
+    if(e.target===INPUT_ID || e.source===OUTPUT_ID) return;
+    if(state.edges.some(x=>x.source===e.source && x.target===e.target)) return;   // no duplicates
+    if(e.target!==OUTPUT_ID && state.edges.some(x=>x.target===e.target)) return;   // single input (output is a sink)
+    state.edges.push({id:"e"+(++state.seq), source:e.source, target:e.target});
+  });
+  state.seq = Math.max(state.seq, maxSeq);
+  autoLayout();
+  setZoom(1); stage.scrollTo(0,0); draw();
+  return {skipped};
+}
+
+/* ---------- Mermaid <-> graph ---------- */
+const ID2SPECIAL = id => id.toLowerCase()==="input" ? INPUT_ID : id.toLowerCase()==="output" ? OUTPUT_ID : id;
+function parseMermaid(src){
+  const nodes = new Map(); const edges = []; let dropped = 0;
+  const refRe = /^([A-Za-z0-9_]+)\s*(?:[[({]+\s*"?(.*?)"?\s*[\])}]+)?$/;
+  const declare = (id, label) => {
+    if(id===INPUT_ID || id===OUTPUT_ID) return;
+    if(label==null && nodes.has(id)) return;                 // a bare ref shouldn't clobber a label
+    const cmd = (label!=null ? label : id).trim().split(/\s+/);
+    nodes.set(id, {id, trick:cmd[0], flags:cmd.slice(1).join(" ")});
+  };
+  src.split(/\r?\n/).forEach(raw=>{
+    let line = raw.trim();
+    if(!line || line.startsWith("%%") || /^(flowchart|graph)\b/i.test(line)) return;
+    line = line.replace(/\|[^|]*\|/g, " ");                  // strip edge labels
+    const refs = line.split(/[-=.]{1,}>/).map(s=>s.trim()).filter(Boolean)
+      .map(part=>{ const m = part.match(refRe); if(!m) return null;
+        const id = ID2SPECIAL(m[1]); declare(id, m[2]!==undefined ? m[2] : null); return id; })
+      .filter(Boolean);
+    for(let i=0;i<refs.length-1;i++) edges.push({source:refs[i], target:refs[i+1]});
+  });
+  const haveParent = new Set(); const seenPair = new Set(); const kept = [];
+  for(const e of edges){
+    const pair = e.source + ">" + e.target;
+    if(seenPair.has(pair)) continue;                          // drop exact duplicates
+    if(e.target!==OUTPUT_ID && haveParent.has(e.target)){ dropped++; continue; }  // single input (output is a sink)
+    seenPair.add(pair); haveParent.add(e.target); kept.push(e);
+  }
+  return {nodes:[...nodes.values()], edges:kept, dropped};
+}
+function toMermaid(){
+  const out = ["flowchart LR"]; const seen = new Set();
+  const ref = id => {
+    if(id===INPUT_ID) return "input";
+    if(id===OUTPUT_ID) return "output";
+    const n = state.nodes.get(id); const cmd = n.flags ? `${n.trick} ${n.flags}` : n.trick;
+    if(cmd===id) return id;                                  // id already reads as the command
+    if(seen.has(id)) return id;
+    seen.add(id); return `${id}["${cmd}"]`;
+  };
+  const paths = [];
+  const walk = (id, acc) => {
+    const acc2 = acc.concat(id); const kids = childrenOf(id);
+    if(!kids.length){ if(acc2.length>1) paths.push(acc2); return; }
+    kids.forEach(k=>walk(k, acc2));
+  };
+  walk(INPUT_ID, []);
+  if(!paths.length) out.push("  input --> output");
+  paths.forEach(p => out.push("  " + p.map(ref).join(" --> ")));
+  return out.join("\n");
+}
+
+/* ---------- the .md document ----------
+   Fence length is honoured both ways: an outer fence uses more backticks than
+   any run inside it, so an input that itself contains a ```json block survives. */
+function fenceFor(s){
+  let max = 0; (s.match(/`+/g)||[]).forEach(r=>max=Math.max(max, r.length));
+  return "`".repeat(Math.max(3, max+1));
+}
+function fences(text){
+  const lines = text.split(/\r?\n/); const blocks = []; let i = 0;
+  while(i < lines.length){
+    const m = lines[i].match(/^\s*(`{3,})(.*)$/);
+    if(m){
+      const ticks = m[1], lang = m[2].trim(), body = []; i++;
+      const close = new RegExp("^\\s*" + ticks + "\\s*$");
+      while(i < lines.length && !close.test(lines[i])){ body.push(lines[i]); i++; }
+      i++;                                   // skip the closing fence
+      blocks.push({lang, body: body.join("\n")});
+    } else i++;
+  }
+  return blocks;
+}
+function toDoc(){
+  const input = state.nodes.get(INPUT_ID).text || "";
+  const f = fenceFor(input);
+  return "# routine\n\nA bag-of-tricks studio pipeline.\n\n" +
+         "```mermaid\n" + toMermaid() + "\n```\n\n" +
+         f + "text\n" + input + "\n" + f + "\n";
+}
+function parseDoc(text){
+  const titleM = text.match(/^#\s+(.+)$/m);
+  const title = titleM ? titleM[1].trim() : "routine";
+  const blocks = fences(text);
+  const mer = blocks.find(b => /^mermaid\b/i.test(b.lang));
+  const inp = blocks.find(b => b !== mer && /^(text|input|txt)?$/i.test(b.lang));
+  const input = inp ? inp.body : "";
+  const graph = mer ? parseMermaid(mer.body) : {nodes:[], edges:[], dropped:0};
+  return {title, input, ...graph};
+}
+function loadDoc(text){
+  const {nodes, edges, input, dropped} = parseDoc(text);
+  if(!nodes.length && !text.includes("```mermaid")) throw new Error("no mermaid graph found");
+  const {skipped} = loadGraph({input, nodes, edges});
+  const n = state.nodes.size - 2;
+  toast(`loaded ${n} trick${n===1?"":"s"}` +
+        (skipped?` · skipped ${skipped} unknown`:"") +
+        (dropped?` · dropped ${dropped} extra input edge${dropped>1?"s":""}`:""));
+}
+// legacy: a previously-saved JSON pipeline (coords ignored — we auto-layout)
+function loadData(data){
+  if(!data || typeof data!=="object" || !Array.isArray(data.nodes))
+    throw new Error("not a studio pipeline file");
+  loadGraph({input:data.input||"",
+    nodes:data.nodes.map(n=>({id:n.id, trick:n.trick, flags:n.flags||""})),
+    edges:(data.edges||[]).map(e=>({source:e.source, target:e.target}))});
+  toast(`loaded ${state.nodes.size-2} tricks (legacy json)`);
+}
+
+function save(){
+  const count = [...state.nodes.values()].filter(n=>n.type==="trick").length;
+  const blob = new Blob([toDoc()], {type:"text/markdown"});
+  const a = el("a"); a.href = URL.createObjectURL(blob);
+  a.download = `bag-studio-${count}-trick${count===1?"":"s"}.md`;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 0);
+  toast(`saved ${count} trick${count===1?"":"s"} to ${a.download}`);
+}
+function openFile(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = reader.result;
+    try{
+      if(/\.json$/i.test(file.name) || text.trimStart().startsWith("{")) loadData(JSON.parse(text));
+      else loadDoc(text);
+    }catch(e){ toast("couldn't load: "+e.message, true); }
+  };
+  reader.onerror = () => toast("couldn't read the file", true);
+  reader.readAsText(file);
+}
+$("#saveBtn").addEventListener("click", save);
+$("#openBtn").addEventListener("click", ()=>$("#fileInput").click());
+$("#fileInput").addEventListener("change", e=>{
+  const f = e.target.files[0]; if(f) openFile(f); e.target.value = "";
+});
+// drop a pipeline file anywhere on the canvas to open it
+stage.addEventListener("drop", e=>{
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(f && /\.(md|markdown|mmd|txt|json)$/i.test(f.name)){ e.preventDefault(); openFile(f); }
+});
+
+function loadSample(){
+  loadDoc(SAMPLE_DOC);
+  toast("sample routine loaded — hit ▶ run");
+}
+const SAMPLE_DOC = `# Clean, then score
+Redact, wash, strip personality, then score how AI it reads — plus a mugshot branch.
+
+\`\`\`mermaid
+flowchart LR
+  input --> frisk --> launder --> deadpan --> tell["tell --score"]
+  frisk --> mugshot
+  tell --> output
+  mugshot --> output
+\`\`\`
+
+\`\`\`text
+Hi there! 😊 As an AI, I'd be happy to help — your key is sk-ABCDEFGH1234567890ondefghijklmno and—well, it's not just code, it's a tapestry.
+\`\`\`
+`;
+
+/* ---------- zoom controls ---------- */
+$("#zoomIn").addEventListener("click", ()=>setZoom(state.zoom*1.2));
+$("#zoomOut").addEventListener("click", ()=>setZoom(state.zoom/1.2));
+$("#zoomLbl").addEventListener("click", ()=>{ setZoom(1); stage.scrollTo(0,0); });
+stage.addEventListener("wheel", e=>{
+  if(!(e.ctrlKey || e.metaKey)) return;   // ctrl/⌘ + wheel (and trackpad pinch) to zoom
+  e.preventDefault();
+  setZoom(state.zoom * (e.deltaY < 0 ? 1.1 : 1/1.1), e.clientX, e.clientY);
+}, {passive:false});
+
+/* ---------- examples menu ---------- */
+async function loadExamples(){
+  const menu = $("#examplesMenu");
+  try{
+    const r = await fetch("/api/examples");
+    const { examples } = await r.json();
+    if(!examples || !examples.length){ menu.innerHTML = '<div class="empty">no examples found</div>'; return; }
+    menu.innerHTML = "";
+    examples.forEach(ex=>{
+      const b = el("button","it",`<b>${ex.title}</b><span>${ex.description||""}</span>`);
+      b.addEventListener("click", ()=>{
+        menu.classList.remove("open");
+        try{ loadDoc(ex.doc); }catch(err){ toast("couldn't load: "+err.message, true); }
+      });
+      menu.append(b);
+    });
+  }catch(e){ menu.innerHTML = '<div class="empty">couldn\'t load examples</div>'; }
+}
+$("#examplesBtn").addEventListener("click", e=>{
+  e.stopPropagation();
+  $("#examplesMenu").classList.toggle("open");
+});
+document.addEventListener("click", e=>{
+  if(!e.target.closest(".menu-wrap")) $("#examplesMenu").classList.remove("open");
+});
+
+boot();
+loadExamples();
+</script>
+</body>
+</html>

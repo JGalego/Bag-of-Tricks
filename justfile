@@ -83,6 +83,10 @@ pack +tricks="all":
       echo "packed dist/bag-of-tricks.zip (whole bag)"
     fi
 
+# open the studio — a visual, multi-branch editor for chaining tricks (PORT=8765)
+studio port="8765":
+    python3 "{{justfile_directory()}}/studio/server.py" --port {{port}} --open
+
 # install dev/CI tooling (ruff + pytest + logo generation)
 dev:
     pip install -r requirements-dev.txt

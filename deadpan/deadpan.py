@@ -42,14 +42,19 @@ _OPENERS = [
     r"no problem[!,. ]*",
 ]
 
+# A sign-off only counts when it *begins* a sentence — at the start of a line or
+# right after .!? — so a trigger phrase buried mid-sentence ("I'd be happy to
+# help — your key is …") can't let the trailing `[^.!\n]*$` swallow the rest of
+# a real sentence. The boundary is prepended at compile time.
+_SIGNOFF_BOUNDARY = r"(?:(?<=[.!?\n])|^)\s*"
 _SIGNOFFS = [
-    r"\s*i hope (?:this|that) helps[!.]?\s*$",
-    r"\s*hope (?:this|that|it) helps[!.]?\s*$",
-    r"\s*let me know if (?:you|there)[^.!\n]*[.!]?\s*$",
-    r"\s*feel free to (?:ask|reach out)[^.!\n]*[.!]?\s*$",
-    r"\s*happy to (?:help|clarify)[^.!\n]*[.!]?\s*$",
-    r"\s*is there anything else[^?\n]*\??\s*$",
-    r"\s*good luck[!.]?\s*$",
+    r"i hope (?:this|that) helps[!.]?\s*$",
+    r"hope (?:this|that|it) helps[!.]?\s*$",
+    r"let me know if (?:you|there)[^.!\n]*[.!]?\s*$",
+    r"feel free to (?:ask|reach out)[^.!\n]*[.!]?\s*$",
+    r"happy to (?:help|clarify)[^.!\n]*[.!]?\s*$",
+    r"is there anything else[^?\n]*\??\s*$",
+    r"good luck[!.]?\s*$",
 ]
 
 # Sycophancy / self-reference — killed at any level.
@@ -95,7 +100,7 @@ def _compile(patterns: list[str], flags: int = re.IGNORECASE) -> list[re.Pattern
 
 
 _OPENERS_RE = _compile([r"^\s*(?:" + p + r")" for p in _OPENERS])
-_SIGNOFFS_RE = _compile(_SIGNOFFS, re.IGNORECASE | re.MULTILINE)
+_SIGNOFFS_RE = _compile([_SIGNOFF_BOUNDARY + p for p in _SIGNOFFS], re.IGNORECASE | re.MULTILINE)
 _SELF_RE = _compile(_SELF)
 _HEDGES_RE = _compile(_HEDGES)
 
