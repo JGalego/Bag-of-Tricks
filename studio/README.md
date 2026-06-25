@@ -24,7 +24,8 @@ just studio                        # same, via the task runner
 
 Then, in the browser:
 
-- **drag** a trick from the left palette onto the canvas,
+- **drag** a trick — or an **✦ LLM model** (Anthropic / OpenAI / Gemini) — from
+  the left palette onto the canvas,
 - **wire** it up: drag from a node's right port (`○`) to another node's left
   port — feed nodes from the **input** box; leaves reach the **output** box,
 - **▶ run** the routine,
@@ -91,6 +92,8 @@ offline:
   before the parser sees it, then extract the JSON from the chatter.
 - **Fan-out audit** — `launder` fans out to `tell`, `mugshot`, and `fold` at
   once: one input, audited three ways. (This is the shape `combo` can't do.)
+- **Ask a model, then strip the fluff** — an Anthropic LLM node answers the
+  prompt, then `deadpan` + `tell` clean and score it. (Needs `ANTHROPIC_API_KEY`.)
 
 Drop a new `.md` into that folder and it shows up in the menu after a reload.
 
@@ -111,11 +114,53 @@ own exit code. A per-node timeout (default 20s) guards the network tricks.
 - **leaves are outputs** — any live node with no outgoing wire (or one wired to
   the **output** box) shows its result in the output box.
 
+## LLM nodes
+
+Beyond the tricks, the palette's **✦ models** section has LLM provider nodes —
+**Anthropic**, **OpenAI**, **Azure OpenAI**, and **Gemini**. An LLM node is a
+filter: it takes whatever flows in as the **prompt**, calls the model, and emits
+the completion downstream. Drag one in, type/pick the **model** (for Azure, your
+**deployment name**), and edit the **inference params** (temperature, max tokens,
+top_p) right on the box. They're styled distinctly — a coloured glow and a ✦ — so
+they don't read like the single-purpose tricks.
+
+Calls run in-process via the official SDKs (`anthropic`, `openai`,
+`google-genai`) with a 90s per-node timeout. Each provider reads its credentials
+from the environment:
+
+| Provider     | credentials                                          | default model      | install                    |
+|--------------|------------------------------------------------------|--------------------|----------------------------|
+| Anthropic    | `ANTHROPIC_API_KEY`                                  | `claude-opus-4-8`  | `pip install anthropic`    |
+| OpenAI       | `OPENAI_API_KEY`                                     | `gpt-4o`           | `pip install openai`       |
+| Azure OpenAI | `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_ENDPOINT` (opt. `AZURE_OPENAI_API_VERSION`) | your deployment | `pip install openai` |
+| Gemini       | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`)               | `gemini-2.0-flash` | `pip install google-genai` |
+
+**`.env` files.** On startup the server loads `.env` from the repo root, `studio/`,
+and the working directory (a real environment variable always wins). Drop your
+keys in a `.env` and they're picked up — no exporting required. (`.env` is
+gitignored.)
+
+**No credentials → disabled.** A provider whose credentials aren't found anywhere
+is shown **greyed and locked (🔒)** in the palette — you can't drag it until you
+set its keys. The startup log prints which providers are enabled. A missing key
+or SDK at run time still surfaces as a node `error` (its branch is skipped), not
+a crash. On models that reject sampling params — Opus 4.8 / 4.7 and Fable 5 —
+`temperature`/`top_p` are dropped automatically so the call doesn't 400.
+
+In the Markdown/Mermaid file an LLM node is a labelled node whose first word is
+the provider: `id["anthropic claude-opus-4-8 temp=0.7 max=512"]`
+(`temp`→temperature, `max`→max_tokens). For example:
+
+```mermaid
+flowchart LR
+  input --> ask["anthropic claude-opus-4-8 max=512"] --> deadpan --> output
+```
+
 ## What's in the palette
 
 Every trick except `combo` (the studio *is* the chainer) and `snitch` (a
-long-running proxy server). Tricks are grouped by **category** and tagged by
-**shape**:
+long-running proxy server), plus the three LLM provider nodes above. Tricks are
+grouped by **category** and tagged by **shape**:
 
 - **▷ filter** — emits transformed text, chains in the middle:
   `frisk`, `launder`, `salvage`, `mole`, `deadpan`, `steno`.
@@ -126,6 +171,22 @@ long-running proxy server). Tricks are grouped by **category** and tagged by
 Two more markers: **⛔** the trick has a gate mode (`--check`) that can abort its
 branch; **☁** the trick calls a model / the network, so it's slow and may need
 an API key.
+
+## Logs
+
+The server logs to stderr, **color-coded**: cyan `http` lines (status code green
+/ yellow / red), a magenta `run` header per pipeline, one line per node tinted by
+status (`ok` green, `abort`/`error` red, `timeout` yellow, `skip` grey — matching
+the node tints in the editor), an `→ calling provider:model …` hint before each
+(possibly slow) LLM call, and a colored `done` summary. Color auto-disables when
+stderr isn't a TTY or `NO_COLOR` is set, so piped/captured output stays plain.
+
+```
+17:07:07   run  run · 3 node(s), 1 edge(s)
+  abort   frisk    2ms  [frisk] 1 found: 1×openai_key
+  skip    launder       upstream a did not pass
+17:07:07   run  done · 1 abort, 1 skip
+```
 
 ## Endpoints
 

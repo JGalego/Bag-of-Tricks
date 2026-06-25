@@ -48,6 +48,13 @@
   .chip .sh{font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:5px;
     padding:1px 5px}
   .chip .mk{font-size:11px;opacity:.8}
+  .chip.llm{border-left-width:3px}
+  .chip.llm .nm::before{content:"✦ ";color:var(--llmc)}
+  .chip.llm .sh{color:var(--llmc);border-color:var(--llmc)}
+  .chip.llm.off{opacity:.5;cursor:not-allowed}
+  .chip.llm.off:hover{border-color:var(--line);background:var(--panel)}
+  .chip.llm.off .nm::before,.chip.llm.off .sh{color:var(--muted)}
+  .chip.llm.off .sh{border-color:var(--line)}
   .legend{margin:16px 4px 0;color:var(--muted);font-size:11px;line-height:1.7}
   .legend b{color:var(--fg);font-weight:600}
 
@@ -114,6 +121,17 @@
   .node .out-view .lab{color:var(--muted);font-size:10.5px;margin-bottom:3px}
   .node .meta{display:flex;gap:6px;align-items:center;margin-top:7px;font-size:10.5px;color:var(--muted)}
   .node .meta .st{padding:1px 6px;border-radius:5px;border:1px solid var(--line)}
+  /* LLM nodes — visually distinct from the single-purpose tricks */
+  .node.llm{width:196px;border-color:var(--llmc,#a371f7);box-shadow:0 0 0 1px var(--llmc,#a371f7),0 8px 24px rgba(0,0,0,.5)}
+  .node.llm .hd{background:linear-gradient(180deg,color-mix(in srgb,var(--llmc) 30%,transparent),transparent);
+    border-bottom-color:var(--llmc)}
+  .node.llm .hd .nm{display:flex;align-items:center;gap:6px}
+  .node.llm .hd .nm::before{content:"✦";color:var(--llmc)}
+  .node.llm .hd .prov{font-size:10px;color:var(--llmc);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  .node.llm .row{display:flex;gap:6px;margin-top:6px}
+  .node.llm .row label{flex:1;font-size:10px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+  .node.llm .row input{padding:4px 6px;font-size:11px}
+  .node.llm .bd > input:focus{border-color:var(--llmc)}
   .port{position:absolute;width:13px;height:13px;border-radius:50%;background:#0d1117;
     border:2px solid var(--muted);top:18px;cursor:crosshair;z-index:3}
   .port:hover{border-color:var(--accent);background:var(--accent)}
@@ -213,14 +231,16 @@ const $ = (s, r=document) => r.querySelector(s);
 const el = (tag, cls, html) => { const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; };
 
 const state = {
-  tricks: [], cats: {}, byName: {},
-  nodes: new Map(),     // id -> {id, type, trick, flags, x, y}
+  tricks: [], cats: {}, byName: {}, providers: {},
+  nodes: new Map(),     // id -> {id, type, trick/flags | provider/model/params, x, y}
   edges: [],            // {id, source, target}
   seq: 0,
   linking: null,        // {source, path}
   results: null,
   zoom: 1,
 };
+const isProvider = p => !!state.providers[p];
+const defaultParams = () => ({ temperature: "", max_tokens: 1024, top_p: "" });
 
 const content = $("#content"), zoom = $("#zoom"), edgesSvg = $("#edges"), stage = $("#stage");
 const BASE_W = 2600, BASE_H = 1500, ZMIN = 0.4, ZMAX = 2.5;
@@ -248,7 +268,7 @@ async function boot(){
   try{
     const r = await fetch("/api/tricks");
     const data = await r.json();
-    state.tricks = data.tricks; state.cats = data.cats;
+    state.tricks = data.tricks; state.cats = data.cats; state.providers = data.providers || {};
     state.byName = Object.fromEntries(state.tricks.map(t=>[t.name,t]));
   }catch(e){
     toast("can't reach the studio server — run: python studio/server.py", true);
@@ -261,6 +281,15 @@ async function boot(){
 
 function buildPalette(){
   const pal = $("#palette");
+  // LLM providers first — these are the multi-purpose model nodes
+  const provIds = Object.keys(state.providers);
+  if(provIds.length){
+    const h = el("div","ph");
+    h.append(Object.assign(el("span","dot"),{}), document.createTextNode("models"));
+    h.querySelector(".dot").style.background = "var(--accent)";
+    pal.append(h);
+    provIds.forEach(p => pal.append(llmChip(p)));
+  }
   const order = ["security","output","debugging","workflow","productivity"];
   const byCat = {};
   state.tricks.forEach(t => (byCat[t.cat]=byCat[t.cat]||[]).push(t));
@@ -273,6 +302,24 @@ function buildPalette(){
     byCat[cat].forEach(t=>pal.append(chip(t)));
   });
   pal.append(legend());
+}
+function llmChip(p){
+  const prov = state.providers[p];
+  const need = [prov.env].concat(prov.extra_env||[]).join(" + ");
+  const c = el("div","chip llm" + (prov.available ? "" : " off"));
+  c.style.setProperty("--llmc", prov.color);
+  c.style.borderLeft = `3px solid ${prov.color}`;
+  c.innerHTML = `<span class="nm">${prov.label}</span>
+    <span class="badge"><span class="sh">${prov.available?"▷ LLM":"🔒"}</span>
+    <span class="mk" title="needs ${need}">☁</span></span>`;
+  if(prov.available){
+    c.draggable = true;
+    c.title = `${prov.label} — pipes its input in as the prompt (default ${prov.default}).`;
+    c.addEventListener("dragstart", e => e.dataTransfer.setData("llm", p));
+  } else {
+    c.title = `${prov.label} disabled — set ${need} (in your shell or a .env file) to enable`;
+  }
+  return c;
 }
 function chip(t){
   const c = el("div","chip");
@@ -288,11 +335,11 @@ function chip(t){
 }
 function legend(){
   const l = el("div","legend");
-  l.innerHTML = `<b>how to</b><br>· drag a trick onto the canvas<br>
+  l.innerHTML = `<b>how to</b><br>· drag a trick or <b>✦ model</b> onto the canvas<br>
     · drag from a <b>○</b> right-port to a left-port to wire<br>
     · feed nodes from <b>input</b>; leaves reach <b>output</b><br>
     · ▶ run, then hover to trace · click a node for detail<br>
-    <br><b>⛔</b> gate · <b>☁</b> network/LLM · single input per node`;
+    <br><b>✦</b> LLM node · <b>⛔</b> gate · <b>☁</b> network · single input per node`;
   return l;
 }
 
@@ -309,6 +356,13 @@ function ensureIO(){
 function addTrickNode(name, x, y){
   const id = "n" + (++state.seq);
   state.nodes.set(id, {id, type:"trick", trick:name, flags:"", x, y});
+  draw();
+  return id;
+}
+function addLLMNode(provider, x, y){
+  const prov = state.providers[provider]; if(!prov) return;
+  const id = "n" + (++state.seq);
+  state.nodes.set(id, {id, type:"llm", provider, model:prov.default, params:defaultParams(), x, y});
   draw();
   return id;
 }
@@ -336,7 +390,8 @@ function draw(){
 
 function buildNode(n){
   const d = el("div","node"); d.id = n.id;
-  if(n.type!=="trick") d.classList.add("io");
+  if(n.type==="input" || n.type==="output") d.classList.add("io");
+  if(n.type==="llm") d.classList.add("llm");
 
   if(n.type==="input"){
     d.innerHTML += `<div class="hd"><span class="nm">input</span><span class="cap">the head of the pipe</span></div>`;
@@ -347,6 +402,33 @@ function buildNode(n){
     d.innerHTML += `<div class="hd"><span class="nm">output</span><span class="cap">what the leaves emit</span></div>`;
     const bd = el("div","bd"); const v = el("div","out-view","<span class='cap'>run the routine to see output</span>");
     v.id = "outview"; bd.append(v); d.append(bd);
+  } else if(n.type==="llm"){
+    const prov = state.providers[n.provider] || {label:n.provider, color:"#a371f7", models:[]};
+    d.style.setProperty("--llmc", prov.color);
+    d.innerHTML += `<div class="hd"><span class="nm">${prov.label}</span><span class="x" title="delete">✕</span></div>`;
+    const bd = el("div","bd");
+    // editable model field + suggestions — Azure routes by arbitrary deployment name
+    const dlId = "ml-" + n.id;
+    const sel = el("input"); sel.setAttribute("list", dlId);
+    sel.value = n.model; sel.title = "model"; sel.placeholder = "model / deployment";
+    sel.addEventListener("input",()=>{ n.model=sel.value; });
+    sel.addEventListener("pointerdown",e=>e.stopPropagation());
+    const dl = el("datalist"); dl.id = dlId;
+    (prov.models||[]).forEach(m=>{ const o=el("option"); o.value=m; dl.append(o); });
+    bd.append(sel, dl);
+    const row = el("div","row");
+    const mkInput = (key, label, ph) => {
+      const lab = el("label"); lab.textContent = label;
+      const i = el("input"); i.value = n.params[key]??""; i.placeholder = ph; i.type = "text";
+      i.addEventListener("input",()=>{ n.params[key]=i.value; });
+      i.addEventListener("pointerdown",e=>e.stopPropagation());
+      lab.append(i); return lab;
+    };
+    row.append(mkInput("temperature","temp","—"), mkInput("max_tokens","max tok","1024"), mkInput("top_p","top_p","—"));
+    bd.append(row);
+    bd.append(el("div","meta"));
+    d.append(bd);
+    d.querySelector(".x").addEventListener("click",e=>{e.stopPropagation();removeNode(n.id);});
   } else {
     const t = state.byName[n.trick] || {cat:"output",catchphrase:""};
     d.style.borderTop = `2px solid ${(state.cats[t.cat]||{}).color||'#888'}`;
@@ -364,13 +446,13 @@ function buildNode(n){
   }
   // ports are appended LAST: setting innerHTML above re-parses the subtree, so
   // any element added before it (and its listeners) would be silently dropped.
-  if(n.type==="input" || n.type==="trick") d.append(portEl(n.id,"out"));
-  if(n.type==="output" || n.type==="trick") d.append(portEl(n.id,"in"));
+  if(n.type==="input" || n.type==="trick" || n.type==="llm") d.append(portEl(n.id,"out"));
+  if(n.type==="output" || n.type==="trick" || n.type==="llm") d.append(portEl(n.id,"in"));
   // drag node by header
   const hd = d.querySelector(".hd");
   hd.addEventListener("pointerdown", e => startNodeDrag(e, n));
-  // click trick node -> detail
-  if(n.type==="trick") d.addEventListener("click", e=>{ if(!dragMoved) openDrawer(n.id); });
+  // click a stage node -> detail
+  if(n.type==="trick" || n.type==="llm") d.addEventListener("click", e=>{ if(!dragMoved) openDrawer(n.id); });
   // hover -> trace ancestry
   d.addEventListener("pointerenter",()=>highlightTrace(n.id));
   d.addEventListener("pointerleave",()=>clearTrace());
@@ -385,17 +467,18 @@ function portEl(id, kind){
 }
 
 function updateNodeView(n, d){
-  d.className = "node" + (n.type!=="trick" ? " io" : "");
-  if(n.type==="trick"){
-    const wired = isReachableFromInput(n.id);
-    if(!wired) d.classList.add("unwired");
+  d.className = "node" + (n.type==="input"||n.type==="output" ? " io" : "") + (n.type==="llm" ? " llm" : "");
+  if(n.type==="trick" || n.type==="llm"){
+    if(!isReachableFromInput(n.id)) d.classList.add("unwired");
     const res = state.results && state.results.nodes[n.id];
     if(res){
       d.classList.add("s-"+res.status);
-      let meta = d.querySelector(".meta");
-      const ms = res.elapsed!=null ? (res.elapsed*1000).toFixed(0)+"ms" : "";
-      meta.innerHTML = `<span class="st ${res.status}">${res.status}</span>
-        <span>exit ${res.code==null?"–":res.code}</span><span>${ms}</span>`;
+      const meta = d.querySelector(".meta");
+      if(meta){
+        const ms = res.elapsed!=null ? (res.elapsed*1000).toFixed(0)+"ms" : "";
+        const code = n.type==="llm" ? "" : `<span>exit ${res.code==null?"–":res.code}</span>`;
+        meta.innerHTML = `<span class="st ${res.status}">${res.status}</span>${code}<span>${ms}</span>`;
+      }
     }
   }
 }
@@ -533,13 +616,16 @@ let openDrawerId = null;
 function openDrawer(id){
   const n = state.nodes.get(id); if(!n) return;
   openDrawerId = id;
-  const t = state.byName[n.trick]||{};
-  $("#drawerName").textContent = n.trick;
-  $("#drawerCap").textContent = t.catchphrase||"";
+  const isLLM = n.type==="llm";
+  const t = isLLM ? {} : (state.byName[n.trick]||{});
+  const prov = isLLM ? (state.providers[n.provider]||{}) : {};
+  $("#drawerName").textContent = isLLM ? n.model : n.trick;
+  $("#drawerCap").textContent = isLLM ? (prov.label||n.provider)+" · LLM node" : (t.catchphrase||"");
   const res = state.results && state.results.nodes[id];
   const body = $("#drawerBody");
+  const blurb = isLLM ? `Pipes its input in as the prompt and emits the model's completion. Needs ${prov.env||"an API key"}.` : (t.blurb||"");
   if(!res){
-    body.innerHTML = `<p class="s">${t.blurb||""}</p><p class="s">run the routine to see this stage's output.</p>`;
+    body.innerHTML = `<p class="s">${blurb}</p><p class="s">run the routine to see this stage's output.</p>`;
   } else {
     const esc = s => (s||"").replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
     body.innerHTML =
@@ -559,10 +645,12 @@ $("#drawerX").addEventListener("click", closeDrawer);
 /* ---------- run ---------- */
 async function run(){
   const input = state.nodes.get(INPUT_ID).text || "";
-  const live = [...state.nodes.values()].filter(n=>n.type==="trick" && isReachableFromInput(n.id));
-  if(!live.length){ toast("wire at least one trick from input", true); return; }
+  const live = [...state.nodes.values()].filter(n=>(n.type==="trick"||n.type==="llm") && isReachableFromInput(n.id));
+  if(!live.length){ toast("wire at least one node from input", true); return; }
   const liveIds = new Set(live.map(n=>n.id));
-  const nodes = live.map(n=>({id:n.id, trick:n.trick, flags:n.flags}));
+  const nodes = live.map(n => n.type==="llm"
+    ? {id:n.id, kind:"llm", provider:n.provider, model:n.model, params:n.params}
+    : {id:n.id, trick:n.trick, flags:n.flags});
   const edges = state.edges
     .filter(e=>liveIds.has(e.source) && liveIds.has(e.target))
     .map(e=>({source:e.source, target:e.target}));
@@ -609,9 +697,10 @@ function renderOutput(data, liveIds){
     const res = data.nodes[id]||{}; const n = state.nodes.get(id);
     const body = res.status==="skip" ? "<span class='cap'>(branch aborted upstream)</span>"
                : (esc(res.stdout) || "<span class='cap'>— empty —</span>");
-    return `<div class="ob"><div class="lab">${n?n.trick:id} · <span class="st ${res.status}">${res.status||"?"}</span></div>${body}</div>`;
+    return `<div class="ob"><div class="lab">${n?nodeLabel(n):id} · <span class="st ${res.status}">${res.status||"?"}</span></div>${body}</div>`;
   }).join("");
 }
+function nodeLabel(n){ return n.type==="llm" ? `${n.provider}:${n.model}` : (n.trick||n.id); }
 
 /* ---------- misc ---------- */
 let toastT;
@@ -623,8 +712,10 @@ function toast(msg, err){
 // drop from palette
 stage.addEventListener("dragover", e=>e.preventDefault());
 stage.addEventListener("drop", e=>{
-  e.preventDefault();
+  const prov = e.dataTransfer.getData("llm");
+  if(prov){ e.preventDefault(); const p=toContent(e.clientX,e.clientY); addLLMNode(prov, Math.max(0,p.x-98), Math.max(0,p.y-20)); return; }
   const name = e.dataTransfer.getData("trick"); if(!name) return;
+  e.preventDefault();
   const pt = toContent(e.clientX, e.clientY);
   addTrickNode(name, Math.max(0,pt.x-86), Math.max(0,pt.y-20));
 });
@@ -688,9 +779,16 @@ function loadGraph({input, nodes, edges}){
   let skipped = 0, maxSeq = 0;
   const num = id => { const m=/(\d+)/.exec(id||""); if(m) maxSeq=Math.max(maxSeq,+m[1]); };
   (nodes||[]).forEach(n=>{
-    if(!n || !state.byName[n.trick]){ skipped++; return; }   // drop unknown tricks
+    if(!n){ skipped++; return; }
     const id = n.id || ("n"+(++state.seq));
-    state.nodes.set(id, {id, type:"trick", trick:n.trick, flags:n.flags||"", x:0, y:0});
+    if(n.kind==="llm" || n.provider){
+      if(!isProvider(n.provider)){ skipped++; return; }    // drop unknown providers
+      state.nodes.set(id, {id, type:"llm", provider:n.provider,
+        model: n.model || state.providers[n.provider].default,
+        params: Object.assign(defaultParams(), n.params||{}), x:0, y:0});
+    } else if(state.byName[n.trick]){
+      state.nodes.set(id, {id, type:"trick", trick:n.trick, flags:n.flags||"", x:0, y:0});
+    } else { skipped++; return; }                          // drop unknown tricks
     num(id);
   });
   const ids = new Set(state.nodes.keys());
@@ -715,8 +813,18 @@ function parseMermaid(src){
   const declare = (id, label) => {
     if(id===INPUT_ID || id===OUTPUT_ID) return;
     if(label==null && nodes.has(id)) return;                 // a bare ref shouldn't clobber a label
-    const cmd = (label!=null ? label : id).trim().split(/\s+/);
-    nodes.set(id, {id, trick:cmd[0], flags:cmd.slice(1).join(" ")});
+    const toks = (label!=null ? label : id).trim().split(/\s+/);
+    if(isProvider(toks[0])){                                 // provider model k=v ... -> LLM node
+      const params = {};
+      toks.slice(2).forEach(kv=>{ const eq = kv.indexOf("="); if(eq<1) return;
+        const raw = kv.slice(0,eq), v = kv.slice(eq+1);
+        const key = raw==="temp" ? "temperature" : (raw==="max" ? "max_tokens" : raw);
+        params[key] = v; });
+      nodes.set(id, {id, kind:"llm", provider:toks[0],
+        model: toks[1] || state.providers[toks[0]].default, params});
+    } else {
+      nodes.set(id, {id, trick:toks[0], flags:toks.slice(1).join(" ")});
+    }
   };
   src.split(/\r?\n/).forEach(raw=>{
     let line = raw.trim();
@@ -742,7 +850,8 @@ function toMermaid(){
   const ref = id => {
     if(id===INPUT_ID) return "input";
     if(id===OUTPUT_ID) return "output";
-    const n = state.nodes.get(id); const cmd = n.flags ? `${n.trick} ${n.flags}` : n.trick;
+    const n = state.nodes.get(id);
+    const cmd = n.type==="llm" ? llmCmd(n) : (n.flags ? `${n.trick} ${n.flags}` : n.trick);
     if(cmd===id) return id;                                  // id already reads as the command
     if(seen.has(id)) return id;
     seen.add(id); return `${id}["${cmd}"]`;
@@ -757,6 +866,14 @@ function toMermaid(){
   if(!paths.length) out.push("  input --> output");
   paths.forEach(p => out.push("  " + p.map(ref).join(" --> ")));
   return out.join("\n");
+}
+function llmCmd(n){
+  let s = `${n.provider} ${n.model}`;
+  const p = n.params || {};
+  if(p.temperature!=="" && p.temperature!=null) s += ` temp=${p.temperature}`;
+  if(p.max_tokens!=="" && p.max_tokens!=null) s += ` max=${p.max_tokens}`;
+  if(p.top_p!=="" && p.top_p!=null) s += ` top_p=${p.top_p}`;
+  return s;
 }
 
 /* ---------- the .md document ----------

@@ -17,6 +17,7 @@ Optional flags: --port, --out.
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -41,10 +42,21 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     url = f"http://127.0.0.1:{args.port}/"
+    # Placeholder keys so every provider shows enabled in the shot — they are
+    # never used for a real call (the LLM node in the screenshot is unwired).
+    shot_env = {
+        **os.environ,
+        "ANTHROPIC_API_KEY": "shot",
+        "OPENAI_API_KEY": "shot",
+        "GEMINI_API_KEY": "shot",
+        "AZURE_OPENAI_API_KEY": "shot",
+        "AZURE_OPENAI_ENDPOINT": "https://shot.openai.azure.com/",
+    }
     server = subprocess.Popen(
         [sys.executable, str(HERE / "server.py"), "--port", str(args.port)],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env=shot_env,
     )
     try:
         for _ in range(50):  # wait for the server to answer
@@ -64,6 +76,8 @@ def main(argv: list[str] | None = None) -> int:
             page.wait_for_selector(".chip")  # palette loaded
             page.click("#sampleBtn")  # load the sample routine
             page.wait_for_selector(".node .hd")  # nodes rendered
+            # drop in an (unwired) LLM node so the distinct provider box shows in the shot
+            page.evaluate("addLLMNode('anthropic', 600, 520)")
             page.click("#runBtn")  # run it
             page.wait_for_function(
                 "document.querySelector('#outview') "

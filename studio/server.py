@@ -23,10 +23,16 @@ branch). A per-node timeout guards the network tricks.
     python studio/server.py --port 9000
     python studio/server.py --open     # also open a browser
 
+LLM provider nodes (Anthropic / OpenAI / Azure OpenAI / Gemini) pipe their input
+in as the prompt and emit the completion; they run in-process via the official
+SDKs. Credentials come from the environment or a `.env` file; a provider with no
+credentials is reported as unavailable so the UI can disable it.
+
 Endpoints:
-    GET  /            -> the editor (index.html)
-    GET  /api/tricks  -> the catalog: every runnable trick, by category + shape
-    POST /api/run     -> execute a routine; returns per-node output + status
+    GET  /             -> the editor (index.html)
+    GET  /api/tricks   -> the catalog: tricks (by category + shape) and providers
+    GET  /api/examples -> the example pipelines under examples/*.md
+    POST /api/run      -> execute a routine; returns per-node output + status
 """
 
 from __future__ import annotations
@@ -36,6 +42,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 import shlex
 import sys
 import threading
@@ -48,6 +55,41 @@ from types import ModuleType
 ROOT = Path(__file__).resolve().parent.parent
 HERE = Path(__file__).resolve().parent
 EXAMPLES_DIR = HERE / "examples"
+
+# ---- color-coded logging ----------------------------------------------------
+# ANSI colors, gated on a real TTY and the NO_COLOR convention so piped/captured
+# output stays plain. `log()` prints a timestamped, tagged line to stderr.
+_USE_COLOR = sys.stderr.isatty() and os.environ.get("NO_COLOR") is None
+_ANSI = {
+    "reset": "\033[0m",
+    "bold": "\033[1m",
+    "dim": "\033[2m",
+    "grey": "\033[90m",
+    "red": "\033[31m",
+    "green": "\033[32m",
+    "yellow": "\033[33m",
+    "blue": "\033[34m",
+    "magenta": "\033[35m",
+    "cyan": "\033[36m",
+}
+
+
+def c(name: str, s: str) -> str:
+    """Wrap `s` in an ANSI color (no-op when color is disabled)."""
+    return f"{_ANSI[name]}{s}{_ANSI['reset']}" if _USE_COLOR else s
+
+
+# per-status color, matching the node tints in the editor
+STATUS_COLOR = {"ok": "green", "abort": "red", "error": "red", "timeout": "yellow", "skip": "grey"}
+# tag color per log level
+_LEVEL_COLOR = {"info": "cyan", "run": "magenta", "warn": "yellow", "error": "red", "ok": "green"}
+
+
+def log(msg: str, level: str = "info") -> None:
+    tag = c(_LEVEL_COLOR.get(level, "cyan"), f"{level:>5}")
+    sys.stderr.write(f"{c('grey', time.strftime('%H:%M:%S'))} {tag}  {msg}\n")
+    sys.stderr.flush()
+
 
 # Category palette (matches the network on the site).
 CATS = {
@@ -227,6 +269,106 @@ TRICKS = [
 ]
 TRICK_NAMES = {t["name"] for t in TRICKS}
 
+# LLM provider nodes. A provider node takes its piped input as the prompt, calls
+# the model in-process via the official SDK, and emits the completion downstream
+# (so it's a filter, like the text-emitting tricks). `no_sampling` lists model
+# ids that REJECT temperature/top_p with a 400 (Opus 4.8/4.7 and Fable 5) — we
+# drop those params for them rather than erroring. `env` is the API-key var.
+PROVIDERS = {
+    "anthropic": {
+        "label": "Anthropic",
+        "color": "#d97757",
+        "env": "ANTHROPIC_API_KEY",
+        "models": [
+            "claude-opus-4-8",
+            "claude-sonnet-4-6",
+            "claude-haiku-4-5",
+            "claude-opus-4-7",
+            "claude-fable-5",
+        ],
+        "default": "claude-opus-4-8",
+        "no_sampling": ["claude-opus-4-8", "claude-opus-4-7", "claude-fable-5"],
+    },
+    "openai": {
+        "label": "OpenAI",
+        "color": "#10a37f",
+        "env": "OPENAI_API_KEY",
+        "models": ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini"],
+        "default": "gpt-4o",
+        "no_sampling": [],
+    },
+    "azure": {
+        "label": "Azure OpenAI",
+        "color": "#0078d4",
+        "env": "AZURE_OPENAI_API_KEY",
+        # Azure routes by *deployment name* (you choose it), not a fixed model id;
+        # also needs AZURE_OPENAI_ENDPOINT (+ optional AZURE_OPENAI_API_VERSION).
+        "extra_env": ["AZURE_OPENAI_ENDPOINT"],
+        "models": ["gpt-4o", "gpt-4o-mini", "gpt-4.1"],
+        "default": "gpt-4o",
+        "no_sampling": [],
+    },
+    "gemini": {
+        "label": "Gemini",
+        "color": "#4285f4",
+        "env": "GEMINI_API_KEY",
+        "models": ["gemini-2.0-flash", "gemini-2.5-pro", "gemini-1.5-pro", "gemini-1.5-flash"],
+        "default": "gemini-2.0-flash",
+        "no_sampling": [],
+    },
+}
+LLM_TIMEOUT = 90.0  # network calls get a longer leash than the offline tricks
+
+
+def load_dotenv() -> list[str]:
+    """Populate os.environ from .env files (repo root, studio/, cwd) at startup.
+
+    A tiny stdlib parser — no python-dotenv dependency. `KEY=value` per line,
+    `#` comments and blank lines ignored, optional `export ` prefix, surrounding
+    quotes stripped. A real environment variable always wins (we never override
+    something already set). Returns the files that were loaded.
+    """
+    loaded = []
+    seen = set()
+    for path in (ROOT / ".env", HERE / ".env", Path.cwd() / ".env"):
+        path = path.resolve()
+        if path in seen or not path.is_file():
+            continue
+        seen.add(path)
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            if line.startswith("export "):
+                line = line[len("export ") :]
+            key, _, val = line.partition("=")
+            key, val = key.strip(), val.strip()
+            if (len(val) >= 2) and val[0] == val[-1] and val[0] in "\"'":
+                val = val[1:-1]
+            if key and key not in os.environ:  # real env wins over .env
+                os.environ[key] = val
+        loaded.append(str(path))
+    return loaded
+
+
+def provider_available(pid: str) -> bool:
+    """True if the credentials a provider needs are present in the environment."""
+    if pid == "gemini":  # google-genai accepts either var
+        return bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+    meta = PROVIDERS.get(pid, {})
+    required = [meta.get("env")] + meta.get("extra_env", [])
+    return all(os.environ.get(var) for var in required if var)
+
+
+def providers_payload() -> dict:
+    """PROVIDERS plus a per-provider `available` flag for the UI to disable nodes."""
+    return {pid: {**meta, "available": provider_available(pid)} for pid, meta in PROVIDERS.items()}
+
+
 # In-process trick modules, loaded lazily and reused.
 _MODULES: dict[str, ModuleType] = {}
 # Redirecting sys.stdout/stdin is process-global, so serialize every run.
@@ -311,6 +453,167 @@ def run_node(name: str, flags: str, stdin_text: str, timeout: float) -> dict:
     return res
 
 
+def _sampling(provider: str, model: str, params: dict, keys: tuple) -> dict:
+    """Pull sampling params from the node, skipping any the model would 400 on."""
+    out = {}
+    blocked = model in PROVIDERS.get(provider, {}).get("no_sampling", [])
+    for key in keys:
+        val = params.get(key)
+        if val in (None, ""):
+            continue
+        if blocked and key in ("temperature", "top_p"):
+            continue
+        out[key] = float(val)
+    return out
+
+
+def _call_anthropic(model: str, params: dict, prompt: str) -> str:
+    import anthropic  # imported lazily so the server runs without the SDK installed
+
+    client = anthropic.Anthropic()
+    kwargs = {
+        "model": model,
+        "max_tokens": int(params.get("max_tokens") or 1024),
+        "messages": [{"role": "user", "content": prompt}],
+        **_sampling("anthropic", model, params, ("temperature", "top_p")),
+    }
+    resp = client.messages.create(**kwargs)
+    return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
+
+
+def _call_openai(model: str, params: dict, prompt: str) -> str:
+    from openai import OpenAI
+
+    client = OpenAI()
+    kwargs = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": int(params.get("max_tokens") or 1024),
+        **_sampling("openai", model, params, ("temperature", "top_p")),
+    }
+    resp = client.chat.completions.create(**kwargs)
+    return resp.choices[0].message.content or ""
+
+
+def _call_azure(model: str, params: dict, prompt: str) -> str:
+    from openai import AzureOpenAI
+
+    client = AzureOpenAI(
+        api_key=os.environ.get("AZURE_OPENAI_API_KEY"),
+        azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT"),
+        api_version=os.environ.get("AZURE_OPENAI_API_VERSION")
+        or os.environ.get("OPENAI_API_VERSION")
+        or "2024-10-21",
+    )
+    kwargs = {
+        "model": model,  # on Azure this is your *deployment name*
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": int(params.get("max_tokens") or 1024),
+        **_sampling("azure", model, params, ("temperature", "top_p")),
+    }
+    resp = client.chat.completions.create(**kwargs)
+    return resp.choices[0].message.content or ""
+
+
+def _call_gemini(model: str, params: dict, prompt: str) -> str:
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client()
+    cfg = {"max_output_tokens": int(params.get("max_tokens") or 1024)}
+    cfg.update(_sampling("gemini", model, params, ("temperature", "top_p")))
+    resp = client.models.generate_content(
+        model=model, contents=prompt, config=types.GenerateContentConfig(**cfg)
+    )
+    return resp.text or ""
+
+
+_LLM_CALLS = {
+    "anthropic": _call_anthropic,
+    "openai": _call_openai,
+    "azure": _call_azure,
+    "gemini": _call_gemini,
+}
+
+
+def run_llm(provider: str, model: str, params: dict, prompt: str, timeout: float) -> dict:
+    """Call an LLM provider in-process; return the same result shape as run_node.
+
+    Runs in a daemon thread so a slow request can be timed out. A missing SDK or
+    API key surfaces as an `error` (the call raises), not a server crash.
+    """
+    fn = _LLM_CALLS.get(provider)
+    if fn is None:
+        return {
+            "stdout": "",
+            "stderr": "",
+            "code": 127,
+            "elapsed": 0.0,
+            "error": f"unknown provider: {provider}",
+        }
+    box: dict = {}
+
+    def target() -> None:
+        try:
+            box["text"] = fn(model, params or {}, prompt)
+        except Exception as exc:  # noqa: BLE001 - missing key / SDK / API error → UI
+            box["error"] = f"{type(exc).__name__}: {exc}"
+
+    thread = threading.Thread(target=target, daemon=True)
+    start = time.monotonic()
+    thread.start()
+    thread.join(timeout)
+    elapsed = time.monotonic() - start
+
+    if thread.is_alive():
+        return {
+            "stdout": "",
+            "stderr": "",
+            "code": 124,
+            "elapsed": elapsed,
+            "timeout": True,
+            "error": f"timed out after {timeout:g}s",
+        }
+    if "error" in box:
+        return {"stdout": "", "stderr": "", "code": 1, "elapsed": elapsed, "error": box["error"]}
+    text = box.get("text", "")
+    return {
+        "stdout": text,
+        "stderr": f"[{provider}:{model}] {len(text)} chars",
+        "code": 0,
+        "elapsed": elapsed,
+    }
+
+
+def _node_label(node: dict) -> str:
+    if node.get("kind") == "llm" or node.get("provider"):
+        return f"{node.get('provider', '?')}:{node.get('model', '?')}"
+    return node.get("trick") or node.get("id") or "?"
+
+
+def _log_node(node: dict, res: dict) -> None:
+    """Print one color-coded result line for a node during a run."""
+    status = res.get("status", "?")
+    if status == "skip":
+        detail = res.get("reason", "")
+    elif res.get("error"):
+        detail = res["error"]
+    else:
+        lines = (res.get("stderr") or "").strip().splitlines()
+        detail = lines[0] if lines else ""
+    if len(detail) > 90:
+        detail = detail[:89] + "…"
+    line = (
+        f"  {c(STATUS_COLOR.get(status, 'cyan'), status.ljust(7))} {c('bold', _node_label(node))}"
+    )
+    if res.get("elapsed"):
+        line += c("grey", f"  {res['elapsed'] * 1000:.0f}ms")
+    if detail:
+        line += "  " + c("grey", detail)
+    sys.stderr.write(line + "\n")
+    sys.stderr.flush()
+
+
 def execute(payload: dict) -> dict:
     """Run a whole routine: a single-input forest of trick nodes.
 
@@ -347,6 +650,9 @@ def execute(payload: dict) -> dict:
             if indeg[child] == 0:
                 queue.append(child)
 
+    if order:
+        log(f"run · {len(order)} node(s), {len(edges)} edge(s)", level="run")
+
     results: dict[str, dict] = {}
     with _RUN_LOCK:
         for nid in order:
@@ -365,12 +671,26 @@ def execute(payload: dict) -> dict:
                         "elapsed": 0.0,
                         "reason": f"upstream {src} did not pass",
                     }
+                    _log_node(node, results[nid])
                     continue
                 stdin_text = up.get("stdout", "")
             else:
                 stdin_text = text
 
-            if name not in TRICK_NAMES:
+            if node.get("kind") == "llm" or node.get("provider"):
+                # network call may be slow — show it's in flight before we block
+                sys.stderr.write("  " + c("grey", f"→ calling {_node_label(node)} …") + "\n")
+                sys.stderr.flush()
+                r = run_llm(
+                    node.get("provider", ""),
+                    node.get("model", ""),
+                    node.get("params") or {},
+                    stdin_text,
+                    LLM_TIMEOUT,
+                )
+            elif name in TRICK_NAMES:
+                r = run_node(name, node.get("flags", "") or "", stdin_text, timeout)
+            else:
                 results[nid] = {
                     "status": "error",
                     "stdout": "",
@@ -379,9 +699,9 @@ def execute(payload: dict) -> dict:
                     "elapsed": 0.0,
                     "error": f"unknown trick: {name}",
                 }
+                _log_node(node, results[nid])
                 continue
 
-            r = run_node(name, node.get("flags", "") or "", stdin_text, timeout)
             if r.get("timeout"):
                 status = "timeout"
             elif r.get("error"):
@@ -392,6 +712,16 @@ def execute(payload: dict) -> dict:
                 status = "ok"
             r["status"] = status
             results[nid] = r
+            _log_node(node, r)
+
+    if order:
+        counts: dict[str, int] = {}
+        for res in results.values():
+            counts[res.get("status", "?")] = counts.get(res.get("status", "?"), 0) + 1
+        summary = ", ".join(
+            c(STATUS_COLOR.get(s, "cyan"), f"{n} {s}") for s, n in sorted(counts.items())
+        )
+        log("done · " + summary, level="run")
 
     # Any node with no children is a sink whose output reaches the output box.
     leaves = [nid for nid in nodes if not children.get(nid)]
@@ -442,8 +772,20 @@ def list_examples() -> list[dict]:
 
 
 class Handler(BaseHTTPRequestHandler):
-    def log_message(self, *args) -> None:  # quiet; access logs would spam stderr
+    def log_message(self, *args) -> None:  # silence the default; we log_request instead
         pass
+
+    def log_request(self, code="-", size="-") -> None:
+        try:
+            code = int(code)
+        except (TypeError, ValueError):
+            code = 0
+        col = "green" if code < 400 else ("yellow" if code < 500 else "red")
+        sys.stderr.write(
+            f"{c('grey', time.strftime('%H:%M:%S'))} {c('cyan', ' http')}  "
+            f"{self.command} {self.path} {c(col, str(code))}\n"
+        )
+        sys.stderr.flush()
 
     def _send(self, code: int, body: bytes, ctype: str) -> None:
         self.send_response(code)
@@ -463,7 +805,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._send(404, b"index.html not found", "text/plain")
         elif self.path == "/api/tricks":
-            self._json(200, {"tricks": TRICKS, "cats": CATS})
+            self._json(200, {"tricks": TRICKS, "cats": CATS, "providers": providers_payload()})
         elif self.path == "/api/examples":
             self._json(200, {"examples": list_examples()})
         else:
@@ -478,6 +820,7 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b"{}")
             self._json(200, execute(payload))
         except Exception as exc:  # noqa: BLE001 - report, never crash the loop
+            log(f"{type(exc).__name__}: {exc}", level="error")
             self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
 
 
@@ -491,12 +834,32 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--open", action="store_true", help="open the editor in a browser")
     args = p.parse_args(argv)
 
+    dotenvs = load_dotenv()
+    enabled = [PROVIDERS[p]["label"] for p in PROVIDERS if provider_available(p)]
+
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     url = f"http://{args.host}:{args.port}/"
-    runnable = ", ".join(t["name"] for t in TRICKS)
     sys.stderr.write(
-        f"studio — rig the whole act\n  {url}\n  {len(TRICKS)} runnable "
-        f"tricks: {runnable}\n  Ctrl-C to stop\n"
+        c("bold", "studio")
+        + c("grey", " — rig the whole act")
+        + "\n"
+        + "  "
+        + c("cyan", url)
+        + "\n"
+        + "  "
+        + c("grey", f"{len(TRICKS)} runnable tricks")
+        + "\n"
+        + "  LLM providers: "
+        + (
+            c("green", ", ".join(enabled))
+            if enabled
+            else c("yellow", "none (set an API key / .env to enable)")
+        )
+        + "\n"
+        + (f"  {c('grey', 'loaded ' + ', '.join(dotenvs))}\n" if dotenvs else "")
+        + "  "
+        + c("grey", "Ctrl-C to stop")
+        + "\n"
     )
     if args.open:
         with contextlib.suppress(Exception):
@@ -504,7 +867,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        sys.stderr.write("\nstudio: down\n")
+        sys.stderr.write("\n" + c("grey", "studio: down") + "\n")
     finally:
         server.server_close()
     return 0
