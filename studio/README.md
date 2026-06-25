@@ -2,6 +2,8 @@
 
 **rig the whole act.**
 
+![the studio UI — the "Clean, then score" routine after a run](studio.png)
+
 A magician rehearses the act in the studio before the show: lay the tricks out,
 wire them together, run it, and watch where it breaks. This is that, for the bag
 — a browser editor where you drag tricks onto a canvas, connect them with
