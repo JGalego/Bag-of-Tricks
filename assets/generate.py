@@ -162,6 +162,17 @@ ICONS = {
         '<circle cx="50" cy="47" r="8" fill="#fff"/>'
         '<path d="M37 70 C37 60 44 56 50 56 C56 56 63 60 63 70 Z" fill="#fff"/>'
     ),
+    "squeeze": _BADGE
+    + (
+        # two jaws pressing inward on a compressed stack of text lines — a vice
+        '<path d="M24 34 L24 66 L39 50 Z" fill="#fff"/>'
+        '<path d="M76 34 L76 66 L61 50 Z" fill="#fff"/>'
+        '<g stroke="#fff" stroke-width="4" stroke-linecap="round">'
+        '<line x1="44" y1="42" x2="56" y2="42"/>'
+        '<line x1="44" y1="50" x2="56" y2="50"/>'
+        '<line x1="44" y1="58" x2="56" y2="58"/>'
+        "</g>"
+    ),
     "interrobang": _BADGE
     + (
         f'<text x="50" y="74" font-family="{SERIF}" font-size="74" fill="#fff" '

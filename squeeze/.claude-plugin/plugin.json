@@ -1,0 +1,10 @@
+{
+  "name": "squeeze",
+  "description": "put the squeeze on it. — detect AI-generated text by how it compresses: model prose squeezes flatter against a known-AI corpus than a known-human one (Normalized Compression Distance), after thinkst's zippy. A heuristic, not proof. Ships a skill and a `squeeze` CLI.",
+  "version": "0.1.0",
+  "author": { "name": "João Galego" },
+  "license": "MIT",
+  "homepage": "https://github.com/JGalego/Bag-of-Tricks/tree/main/squeeze",
+  "repository": "https://github.com/JGalego/Bag-of-Tricks",
+  "keywords": ["llm", "detection", "compression", "ncd", "stylometry", "cli"]
+}

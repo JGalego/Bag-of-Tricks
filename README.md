@@ -34,6 +34,7 @@ A growing set of single-idea tools. Each lives in its own folder, does one thing
 | [`grill`](grill/) | *put it in the hot seat.* | adversarially interrogates an answer with probing follow-ups before you trust it. |
 | [`lineup`](lineup/) | *same prompt, the whole lineup.* | runs one prompt across several models and lays the answers side by side. |
 | [`mugshot`](mugshot/) | *we know your prints.* | guesses which model wrote a passage from its stylistic fingerprints — a parlor trick, not proof. |
+| [`squeeze`](squeeze/) | *put the squeeze on it.* | detects AI-generated text by how it compresses — model prose squeezes flatter against a known-AI corpus than a human one (after [`zippy`](https://github.com/thinkst/zippy)). |
 | [`combo`](combo/) | *pull the whole routine.* | chains tricks into one pipeline so the output of one flows into the next — the bag's composition layer. |
 
 ## composing tricks
@@ -60,7 +61,7 @@ A trick's **shape** tells you where it can sit in a routine:
 | shape        | emits                  | where it sits     | examples                                       |
 |--------------|------------------------|-------------------|------------------------------------------------|
 | **filter**   | transformed text       | the middle        | `frisk` `launder` `salvage` `mole` `deadpan`   |
-| **analyzer** | a report / verdict     | the end (a sink)  | `tell` `fold` `alibi` `mugshot` `bluff` `tollbooth` |
+| **analyzer** | a report / verdict     | the end (a sink)  | `tell` `fold` `alibi` `mugshot` `squeeze` `bluff` `tollbooth` |
 | **gate**     | nothing (an exit code) | first or last     | a `--check` / `--max` *mode*, not a trick      |
 
 Rule of thumb: any number of **filters**, optionally ended by **one analyzer**,

@@ -125,6 +125,13 @@
       "tags": ["llm", "stylometry", "detection", "attribution", "cli"]
     },
     {
+      "name": "squeeze",
+      "source": "./squeeze",
+      "description": "put the squeeze on it. — detect AI-generated text by how it compresses: model prose squeezes flatter against a known-AI corpus than a human one (after thinkst's zippy). A heuristic, not proof.",
+      "category": "output",
+      "tags": ["llm", "detection", "compression", "ncd", "cli"]
+    },
+    {
       "name": "combo",
       "source": "./combo",
       "description": "pull the whole routine. — chain tricks into one pipeline so the output of one flows into the next: `combo \"frisk | launder | deadpan\"`.",
