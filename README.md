@@ -119,6 +119,12 @@ curl -fsSL https://raw.githubusercontent.com/JGalego/Bag-of-Tricks/main/install.
 
 It discovers tricks by scanning the tree, so it always installs the full set. Knobs: `BIN_DIR`, `BOT_HOME`, `BOT_REF` (branch/tag), `BOT_SKILLS`. Make sure `~/.local/bin` is on your `PATH`.
 
+Pin to a [release](https://github.com/JGalego/Bag-of-Tricks/releases) by pointing `BOT_REF` at a tag — `v0.2.0` for a bag release, `frisk-v0.2.0` for a single trick:
+
+```bash
+BOT_REF=v0.2.0 curl -fsSL https://raw.githubusercontent.com/JGalego/Bag-of-Tricks/v0.2.0/install.sh | bash
+```
+
 Want just one trick? Grab a single folder as a zip — `just pack frisk` (writes `dist/frisk.zip`), or download it straight from GitHub via [download-directory.github.io](https://download-directory.github.io/?url=https://github.com/JGalego/Bag-of-Tricks/tree/main/frisk). `just pack` with no args zips every trick plus the whole bag.
 
 ## install standalone
@@ -183,6 +189,27 @@ just              # list every recipe
 Or directly: `ruff check .`, `ruff format .`, `pytest`. A [Makefile](Makefile) mirrors the dev recipes (`make check`, `make dev`, …) if you'd rather use [make](https://www.gnu.org/software/make/).
 
 CI runs the same checks on every push and PR across Python 3.9–3.12 (see [.github/workflows/ci.yml](.github/workflows/ci.yml)).
+
+## releasing
+
+Tricks ship independently, and so does the whole bag. A push to a version tag triggers [.github/workflows/release.yml](.github/workflows/release.yml), which re-runs `just check`, packs the zip(s), and publishes a [GitHub Release](https://github.com/JGalego/Bag-of-Tricks/releases) with auto-generated notes. Two tag shapes drive it:
+
+| tag | releases | assets |
+|-----|----------|--------|
+| `frisk-v0.2.0` | just that trick | `frisk.zip` |
+| `v0.2.0` | the whole bag | every trick `*.zip` + `bag-of-tricks.zip` |
+
+The version in the manifest is the source of truth — a trick's [`.claude-plugin/plugin.json`](frisk/.claude-plugin/plugin.json) for a single trick, [`pyproject.toml`](pyproject.toml) for the bag. A tag whose version disagrees with its manifest fails the build. The one-command path bumps the manifest, commits, tags, and pushes for you — the version is optional and defaults to a patch bump of whatever the manifest currently says:
+
+```bash
+just release frisk         # 0.1.0 -> 0.1.1, tags frisk-v0.1.1
+just release frisk minor   # 0.1.0 -> 0.2.0, tags frisk-v0.2.0
+just release all 1.0.0     # sets the bag to v1.0.0
+```
+
+You can also cut a release from the **Actions** tab (the workflow's `workflow_dispatch` takes a trick name — or `all` — and a version, and creates the tag itself). A `-rc1`/`-beta` suffix marks it a prerelease.
+
+> Releases serve the **zip-download** and pinned **`install.sh`** paths (`BOT_REF=<tag>`). The Claude Code *plugin* path resolves from [`marketplace.json`](.claude-plugin/marketplace.json) by repo ref, not from GitHub Releases — `/plugin install` always tracks the marketplace, so a release tag is a download anchor, not a plugin channel.
 
 ## inspirational quote
 

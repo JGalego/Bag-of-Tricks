@@ -1,0 +1,130 @@
+name: release
+
+# Cut a release for one trick or the whole bag. Two tag shapes drive it:
+#
+#   frisk-v0.2.0   -> release just that trick   (asset: dist/frisk.zip)
+#   v0.2.0         -> release the whole bag      (assets: every dist/*.zip)
+#
+# Easiest path: `just release frisk 0.2.0` (bumps the manifest, tags, pushes).
+# Or fire it from the Actions tab via "Run workflow" (workflow_dispatch) — it
+# creates the tag for you. The manifest version (plugin.json / pyproject.toml)
+# is the source of truth; a tag that disagrees fails the build.
+
+on:
+  push:
+    tags:
+      - "v*"      # whole-bag release, e.g. v0.2.0
+      - "*-v*"    # single-trick release, e.g. frisk-v0.2.0
+  workflow_dispatch:
+    inputs:
+      trick:
+        description: 'Trick to release, or "all" for the whole bag'
+        required: true
+        default: all
+        type: string
+      version:
+        description: "Version without the leading v, e.g. 0.2.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write   # create the GitHub Release + tag
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so auto-generated notes can diff tags
+
+      - name: Resolve trick + version
+        id: meta
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            trick="${{ inputs.trick }}"
+            version="${{ inputs.version }}"
+          else
+            ref="${GITHUB_REF_NAME}"
+            if [[ "$ref" =~ ^v([0-9].*)$ ]]; then
+              trick="all"; version="${BASH_REMATCH[1]}"
+            elif [[ "$ref" =~ ^(.+)-v([0-9].*)$ ]]; then
+              trick="${BASH_REMATCH[1]}"; version="${BASH_REMATCH[2]}"
+            else
+              echo "::error::tag '$ref' matches neither v<semver> nor <trick>-v<semver>"
+              exit 1
+            fi
+          fi
+          version="${version#v}"
+
+          if [ "$trick" = "all" ]; then
+            tag="v$version"; name="bag of tricks v$version"
+          else
+            if [ ! -f "$trick/.claude-plugin/plugin.json" ]; then
+              echo "::error::unknown trick '$trick' (no $trick/.claude-plugin/plugin.json)"
+              exit 1
+            fi
+            tag="$trick-v$version"; name="$trick v$version"
+          fi
+
+          # a hyphen in the version (e.g. 0.2.0-rc1) marks a prerelease
+          case "$version" in *-*) pre=true;; *) pre=false;; esac
+
+          {
+            echo "trick=$trick"
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "name=$name"
+            echo "prerelease=$pre"
+          } >> "$GITHUB_OUTPUT"
+          echo "resolved: trick=$trick version=$version tag=$tag prerelease=$pre"
+
+      - name: Verify the manifest version matches the tag
+        run: |
+          set -euo pipefail
+          trick="${{ steps.meta.outputs.trick }}"
+          want="${{ steps.meta.outputs.version }}"
+          if [ "$trick" = "all" ]; then
+            src="pyproject.toml"
+            have="$(python3 -c "import re,sys; print(re.search(r'^version\s*=\s*\"([^\"]+)\"', open('pyproject.toml').read(), re.M).group(1))")"
+          else
+            src="$trick/.claude-plugin/plugin.json"
+            have="$(python3 -c "import json; print(json.load(open('$src'))['version'])")"
+          fi
+          if [ "$have" != "$want" ]; then
+            echo "::error::version mismatch — tag says '$want' but $src says '$have'. Bump the manifest (or use 'just release')."
+            exit 1
+          fi
+          echo "$src is at $have ✔"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Set up just
+        uses: extractions/setup-just@v2
+
+      - name: Install dev tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Gate — lint + format + tests (what CI runs)
+        run: just check
+
+      - name: Package
+        run: just pack ${{ steps.meta.outputs.trick }}
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.name }}
+          files: dist/*.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          prerelease: ${{ steps.meta.outputs.prerelease }}
+          # only a whole-bag release claims "latest"; per-trick releases don't
+          make_latest: ${{ steps.meta.outputs.trick == 'all' }}
