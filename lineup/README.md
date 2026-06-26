@@ -85,8 +85,9 @@ export OPENAI_API_KEY=sk-...          # for gpt-*/o1/o3 ids
 export GEMINI_API_KEY=...             # for gemini-* ids
 ```
 
-No SDK to install — the shared helper talks to each provider directly. Without a
-key, run with `--dry-run` to preview the lineup for free.
+Install the matching SDK for the providers in your lineup (`pip install
+anthropic` / `openai` / `google-genai`); the shared helper imports each lazily.
+Without a key, run with `--dry-run` to preview the lineup for free.
 
 ## install
 
@@ -96,7 +97,8 @@ just install lineup            # symlinks `lineup` onto your PATH + installs the
 
 [`just`](https://github.com/casey/just). Or just run `python3 lineup.py` from
 this folder. A real run needs one of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` /
-`GEMINI_API_KEY`; `--dry-run` needs neither a key nor any dependency.
+`GEMINI_API_KEY` plus that provider's SDK installed; `--dry-run` needs neither a
+key nor any dependency.
 
 ## honest notes
 

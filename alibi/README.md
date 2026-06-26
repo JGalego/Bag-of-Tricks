@@ -17,7 +17,9 @@ It comes in two halves:
   and one or more source documents; it splits the answer into sentence-level
   claims, scores each by lexical overlap with the sources, and flags every claim
   that falls below the support threshold. Verdicts to stdout, summary to stderr.
-  No model calls — it's a cheap, fast first pass.
+  No model calls by default — a cheap, fast first pass; an optional `--llm` mode
+  (with `--provider` / `--model`) escalates to a semantic, model-backed grounding
+  check when lexical overlap isn't enough.
 
 ## the check
 

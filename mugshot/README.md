@@ -27,12 +27,12 @@ It comes in two halves:
 # default: model-backed if a key is set, else the offline heuristic (with a note)
 echo "Certainly! I'd be happy to help. It's important to note that we must delve into this." \
   | python3 mugshot.py
-# most likely: gpt-ish (medium confidence) — heuristic, not proof
-# prints: gpt-ish:Certainly!, gpt-ish:I'd be happy to, gpt-ish:It's important to…, generic-AI:delve
+# most likely: gpt-ish (high confidence) — heuristic, not proof
+# prints: gpt-ish:Certainly!, gpt-ish:I'd be happy to, claude-ish:happy to help, gpt-ish:It's important to note, generic-AI:delve
 
 # force the real model-backed attribution
 python3 mugshot.py --llm draft.md
-python3 mugshot.py --llm --provider anthropic --model claude-3-5-sonnet-latest draft.md
+python3 mugshot.py --llm --provider anthropic --model claude-sonnet-4-6 draft.md
 
 # force the offline regex heuristic (no network)
 python3 mugshot.py --parlor draft.md

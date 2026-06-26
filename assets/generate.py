@@ -1152,6 +1152,14 @@ def render_bytes(svg, width, height, renderer):
             check=True,
             stdout=subprocess.PIPE,
         ).stdout
+    except subprocess.CalledProcessError as e:
+        # ImageMagick's SVG/Freetype path can't parse the quoted, comma-separated
+        # CSS font-family these logos use and aborts with an opaque font error.
+        raise SystemExit(
+            "ImageMagick `convert` failed to rasterise the SVG (it does not parse "
+            "the comma-separated CSS font-family used here). Install cairosvg "
+            "instead — `pip install cairosvg` — which handles it."
+        ) from e
     finally:
         os.unlink(tmp)
 

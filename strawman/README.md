@@ -27,9 +27,10 @@ badly, the exact input that broke it, and how to harden it.
 just install strawman          # symlinks `strawman` onto your PATH
 ```
 
-[`just`](https://github.com/casey/just). No provider SDK to install — strawman
-talks to Anthropic, OpenAI-compatible, and Gemini backends over plain HTTP. Or
-just run `python3 strawman.py` from this folder.
+[`just`](https://github.com/casey/just). Install one provider SDK (`pip install
+anthropic` / `openai` / `google-genai`); strawman talks to Anthropic,
+OpenAI-compatible, and Gemini backends via that official SDK, lazily imported.
+Or just run `python3 strawman.py` from this folder.
 
 ## usage
 

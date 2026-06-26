@@ -148,7 +148,7 @@ _PII_JSON = re.compile(r'"(?P<key>[^"]+)"\s*:\s*"(?P<val>(?:[^"\\]|\\.)*)"')
 # won't swallow nested structures.
 _PII_LINE = re.compile(
     r"(?m)^[ \t]*(?P<key>[A-Za-z][A-Za-z0-9_. -]*?)[ \t]*[:=][ \t]*"
-    r"(?P<val>[^\"{\[\n][^\n,]*?)[ \t]*,?[ \t]*$"
+    r"(?P<val>[^\"{\[\n][^\n]*?)[ \t]*,?[ \t]*$"
 )
 
 
@@ -400,13 +400,14 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(json.dumps(payload, indent=2) + "\n")
         return 1 if (args.check and findings) else 0
 
-    # --report: list findings to stdout (masked), exit 0.
+    # --report: list findings to stdout (masked). Honors --check as a gate,
+    # the same as --json, so `--check --report` still exits 1 on a finding.
     if args.report:
         if findings:
             sys.stdout.write("\n".join(_summary_lines(findings)) + "\n")
         else:
             sys.stdout.write("clean — nothing to declare\n")
-        return 0
+        return 1 if (args.check and findings) else 0
 
     # Summary to stderr in every non-json mode.
     if findings:

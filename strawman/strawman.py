@@ -253,12 +253,16 @@ def _llm_openai(prompt, system, schema, model, max_tokens, temperature, base_url
     messages = ([{"role": "system", "content": system}] if system else []) + [
         {"role": "user", "content": prompt}
     ]
+    # Reasoning models (o1/o3/o4/gpt-5*) reject `max_tokens` and a non-default
+    # temperature; they take `max_completion_tokens` and the default temperature.
+    reasoning = (model or "").lower().startswith(("o1", "o3", "o4", "gpt-5"))
     kwargs = {
         "model": model,
         "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
+        "max_completion_tokens" if reasoning else "max_tokens": max_tokens,
     }
+    if not reasoning:
+        kwargs["temperature"] = temperature
     if schema:
         kwargs["response_format"] = {
             "type": "json_schema",
@@ -534,6 +538,10 @@ def main(argv=None) -> int:
     bad = [a for a in attacks if a not in ATTACKS]
     if bad:
         print(f"unknown attack(s): {', '.join(bad)}", file=sys.stderr)
+        print(f"choose from: {', '.join(ATTACKS)}", file=sys.stderr)
+        return 2
+    if not attacks:
+        print("no attacks selected (--attacks was empty).", file=sys.stderr)
         print(f"choose from: {', '.join(ATTACKS)}", file=sys.stderr)
         return 2
 

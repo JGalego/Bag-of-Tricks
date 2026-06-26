@@ -8,7 +8,7 @@
   <a href="LICENSE"><img alt="license: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-blue.svg">
   <a href="https://github.com/astral-sh/ruff"><img alt="code style: ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
-  <img alt="tricks: 18" src="https://img.shields.io/badge/tricks-18-111111.svg">
+  <img alt="tricks: 19" src="https://img.shields.io/badge/tricks-19-111111.svg">
 </p>
 
 > a small bag of clever hacks for people who work with LLMs all day.

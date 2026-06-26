@@ -1,6 +1,6 @@
 {
   "name": "alibi",
-  "description": "does the story check out? — verify an answer's claims are grounded in the provided sources and flag fabricated or unsupported statements (lexical, deterministic, no model calls). Ships a skill and an `alibi` CLI.",
+  "description": "does the story check out? — verify an answer's claims are grounded in the provided sources and flag fabricated or unsupported statements (lexical and deterministic by default, with an optional --llm model-backed mode). Ships a skill and an `alibi` CLI.",
   "version": "0.1.0",
   "author": { "name": "João Galego" },
   "license": "MIT",

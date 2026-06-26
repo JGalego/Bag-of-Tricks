@@ -36,10 +36,11 @@ waiting to be shipped. Make it produce its alibi.
 
 - It is **not** a fact-checker against the open world. It only knows the sources
   you give it. "Unsupported" means *not in these documents*, not *false*.
-- It is **not** semantic. It is lexical overlap, so a faithful paraphrase that
-  reuses none of the source's words can read as weakly supported. For borderline
-  claims, pair it with a model judge — let alibi do the cheap, deterministic
-  first pass and escalate only the close calls.
+- The default mode is **not** semantic. It is lexical overlap, so a faithful
+  paraphrase that reuses none of the source's words can read as weakly supported.
+  For borderline claims, escalate with the built-in `--llm` mode (a model judge)
+  — let alibi do the cheap, deterministic first pass and spend a model call only
+  on the close calls.
 - It is **not** a grader of writing quality. A beautifully written claim with no
   source is still a bluff.
 
@@ -67,7 +68,9 @@ more `--source` files and it reports each claim with a SUPPORTED/UNSUPPORTED
 verdict and score (`alibi.py answer.txt --source sources.txt`), gates a RAG
 pipeline (`alibi.py … --check`, exits 1 if any claim is unsupported), lists just
 the claims that don't check out (`--report`), or emits structured results
-(`--json`).
+(`--json`). For the borderline, paraphrase-heavy cases lexical overlap misses,
+`--llm` (with `--provider` / `--model`) runs the same check with a model judge —
+the in-tool version of the escalation above.
 
 Pairs with [bluff](https://github.com/JGalego/Bag-of-Tricks/tree/main/bluff):
 bluff confirms the *links* in an answer resolve; alibi confirms the *claims* are

@@ -207,6 +207,16 @@ TRICKS = [
         "flags": ["--json"],
     },
     {
+        "name": "squeeze",
+        "cat": "output",
+        "shape": "analyzer",
+        "gate": True,
+        "net": False,
+        "catchphrase": "put the squeeze on it.",
+        "blurb": "detect AI-generated text by how it compresses (NCD vs known-AI/human corpora).",
+        "flags": ["--score", "--json", "--report"],
+    },
+    {
         "name": "tollbooth",
         "cat": "productivity",
         "shape": "analyzer",
@@ -438,24 +448,29 @@ def run_node(name: str, flags: str, stdin_text: str, timeout: float) -> dict:
     box: dict = {"code": 0}
 
     def target() -> None:
-        with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
-            real_stdin = sys.stdin
-            sys.stdin = io.StringIO(stdin_text)
-            try:
-                code = mod.main(argv)
-                box["code"] = code if isinstance(code, int) else 0
-            except SystemExit as exc:  # argparse errors / explicit exits
-                box["code"] = exc.code if isinstance(exc.code, int) else 1
-            except Exception as exc:  # noqa: BLE001 - surface, don't crash the server
-                box["code"] = 1
-                box["error"] = f"{type(exc).__name__}: {exc}"
-            finally:
-                sys.stdin = real_stdin
+        try:
+            code = mod.main(argv)
+            box["code"] = code if isinstance(code, int) else 0
+        except SystemExit as exc:  # argparse errors / explicit exits
+            box["code"] = exc.code if isinstance(exc.code, int) else 1
+        except Exception as exc:  # noqa: BLE001 - surface, don't crash the server
+            box["code"] = 1
+            box["error"] = f"{type(exc).__name__}: {exc}"
 
-    thread = threading.Thread(target=target, daemon=True)
+    # Redirect the process-global streams from THIS (main) thread and restore
+    # them in finally — even on timeout. Doing the redirect inside the worker
+    # left the globals pointed at dead buffers whenever it hung past the join,
+    # corrupting every later run and log line. A timed-out worker that writes
+    # after we restore hits the real streams, which is harmless.
+    saved = (sys.stdout, sys.stderr, sys.stdin)
+    sys.stdout, sys.stderr, sys.stdin = out_buf, err_buf, io.StringIO(stdin_text)
     start = time.monotonic()
-    thread.start()
-    thread.join(timeout)
+    try:
+        thread = threading.Thread(target=target, daemon=True)
+        thread.start()
+        thread.join(timeout)
+    finally:
+        sys.stdout, sys.stderr, sys.stdin = saved
     elapsed = time.monotonic() - start
 
     if thread.is_alive():

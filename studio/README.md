@@ -165,8 +165,8 @@ grouped by **category** and tagged by **shape**:
 - **▷ filter** — emits transformed text, chains in the middle:
   `frisk`, `launder`, `salvage`, `mole`, `deadpan`, `steno`.
 - **■ sink** — emits a report/verdict, a terminal stage:
-  `tell`, `fold`, `alibi`, `mugshot`, `tollbooth`, `bluff`, `grill`, `lineup`,
-  `strawman`, `interrobang`.
+  `tell`, `fold`, `alibi`, `mugshot`, `squeeze`, `tollbooth`, `bluff`, `grill`,
+  `lineup`, `strawman`, `interrobang`.
 
 Two more markers: **⛔** the trick has a gate mode (`--check`) that can abort its
 branch; **☁** the trick calls a model / the network, so it's slow and may need

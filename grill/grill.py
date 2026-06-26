@@ -20,9 +20,9 @@ Usage:
     python3 grill.py answer.txt --provider openai --model gpt-4o
     python3 grill.py answer.txt --dry-run     # no API key needed
 
-Talks to Anthropic, OpenAI-compatible, and Gemini backends over plain HTTP via
-an official provider SDK (anthropic / openai / google-genai), lazily imported (only --dry-run needs
-nothing at all).
+Talks to Anthropic, OpenAI-compatible, and Gemini backends via each provider's
+official SDK (anthropic / openai / google-genai), lazily imported (only --dry-run
+needs nothing at all).
 """
 
 from __future__ import annotations
@@ -255,12 +255,16 @@ def _llm_openai(prompt, system, schema, model, max_tokens, temperature, base_url
     messages = ([{"role": "system", "content": system}] if system else []) + [
         {"role": "user", "content": prompt}
     ]
+    # Reasoning models (o1/o3/o4/gpt-5*) reject `max_tokens` and a non-default
+    # temperature; they take `max_completion_tokens` and the default temperature.
+    reasoning = (model or "").lower().startswith(("o1", "o3", "o4", "gpt-5"))
     kwargs = {
         "model": model,
         "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
+        "max_completion_tokens" if reasoning else "max_tokens": max_tokens,
     }
+    if not reasoning:
+        kwargs["temperature"] = temperature
     if schema:
         kwargs["response_format"] = {
             "type": "json_schema",
@@ -575,6 +579,10 @@ def main(argv=None) -> int:
     bad = [a for a in angles if a not in ANGLES]
     if bad:
         print(f"unknown angle(s): {', '.join(bad)}", file=sys.stderr)
+        print(f"choose from: {', '.join(ANGLES)}", file=sys.stderr)
+        return 2
+    if not angles:
+        print("no angles selected (--angles was empty).", file=sys.stderr)
         print(f"choose from: {', '.join(ANGLES)}", file=sys.stderr)
         return 2
 

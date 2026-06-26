@@ -33,8 +33,8 @@ absolute numbers run high for short text — what matters is the *gap* between t
 > **Input:** "Certainly! It's important to note that we must delve into this
 > rich tapestry. In conclusion, leverage robust, seamless solutions."
 >
-> **Verdict:** likely AI-generated (high) — ai-ncd 0.68 < human-ncd 0.82.
-> The prose folds into the known-AI corpus far more tightly than the human one.
+> **Verdict:** likely AI-generated (low) — ai-ncd 0.82 < human-ncd 0.87.
+> The prose folds into the known-AI corpus a little more tightly than the human one.
 
 ## Output
 

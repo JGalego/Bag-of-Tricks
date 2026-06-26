@@ -37,7 +37,7 @@ python3 fold.py --report < answer.txt
 
 # a quick confidence-inflation gauge
 echo "Obviously this always works, no doubt." | python3 fold.py --score
-# [fold] confidence-inflation: 50.0 markers/100w (3 tells)
+# [fold] confidence-inflation: 33.33 markers/100w (2 tells)
 
 # let a model judge unearned confidence (catches a bluff with no tell-word)
 cat answer.txt | python3 fold.py --llm

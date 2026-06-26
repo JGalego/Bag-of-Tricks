@@ -245,12 +245,16 @@ def _llm_openai(prompt, system, schema, model, max_tokens, temperature, base_url
     messages = ([{"role": "system", "content": system}] if system else []) + [
         {"role": "user", "content": prompt}
     ]
+    # Reasoning models (o1/o3/o4/gpt-5*) reject `max_tokens` and a non-default
+    # temperature; they take `max_completion_tokens` and the default temperature.
+    reasoning = (model or "").lower().startswith(("o1", "o3", "o4", "gpt-5"))
     kwargs = {
         "model": model,
         "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
+        "max_completion_tokens" if reasoning else "max_tokens": max_tokens,
     }
+    if not reasoning:
+        kwargs["temperature"] = temperature
     if schema:
         kwargs["response_format"] = {
             "type": "json_schema",
@@ -371,6 +375,10 @@ _SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 # Content tokens: runs of letters/digits (with internal apostrophes/hyphens).
 _WORD_RE = re.compile(r"[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*")
 
+# Trailing token, keeping internal dots, for abbreviation matching — so dotted
+# entries (e.g, i.e, u.s) match _ABBREV and not just single words like "dr".
+_ABBREV_TAIL_RE = re.compile(r"[a-z]+(?:\.[a-z]+)*$")
+
 # A small, boring stopword set. Pulling these before scoring keeps "the sky is
 # blue" from scoring high against a source that merely contains "the" and "is".
 # The second line is conversational filler — greetings and chatty connective
@@ -417,8 +425,8 @@ def split_sentences(text: str) -> list[str]:
         if out:
             last = out[-1]
             tail = last[:-1] if last and last[-1] in ".!?" else last
-            last_word = _WORD_RE.findall(tail.lower())
-            if last_word and last_word[-1] in _ABBREV:
+            m = _ABBREV_TAIL_RE.search(tail.lower())
+            if m and m.group(0) in _ABBREV:
                 out[-1] = f"{last} {piece}"
                 continue
         out.append(piece)

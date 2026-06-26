@@ -26,7 +26,7 @@ It comes in two halves:
 ```bash
 echo "Certainly! It's important to note that we must delve into this rich tapestry. In conclusion, leverage robust, seamless solutions." \
   | python3 squeeze.py
-# likely AI-generated (high) — ai-ncd 0.68 < human-ncd 0.82 — heuristic, not proof
+# likely AI-generated (low) — ai-ncd 0.82 < human-ncd 0.87 — heuristic, not proof
 
 # the full breakdown, with a bar
 python3 squeeze.py --report < draft.md

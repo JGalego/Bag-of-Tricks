@@ -150,7 +150,9 @@ def run_pipeline(stages: list[list[str]], data: bytes, *, verbose: bool) -> tupl
             sys.stderr.write(
                 f"[combo] unknown trick: {stage[0]} (not a sibling trick, not on PATH)\n"
             )
-            return 127, data
+            # Emit nothing on abort — don't echo the original (possibly
+            # unredacted) input as if the routine had passed.
+            return 127, b""
         cmd = prefix + stage[1:]
         if verbose:
             sys.stderr.write(f"[combo] {' '.join(stage)}\n")

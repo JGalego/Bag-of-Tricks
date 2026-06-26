@@ -25,8 +25,9 @@ It comes in two halves:
 - **`grill.py`** — a zero-dependency CLI that prints the interrogation plan
   offline (`--dry-run`), or runs the questions against a model (the default when
   an API key is present) and reports where the answer cracked. It talks to
-  Anthropic, OpenAI-compatible, and Gemini backends over plain HTTP — **no
-  provider SDK to install**.
+  Anthropic, OpenAI-compatible, and Gemini backends via each provider's official
+  SDK (`pip install anthropic` / `openai` / `google-genai`), lazily imported so
+  you install only the one you use.
 
 ## the interrogation angles
 
