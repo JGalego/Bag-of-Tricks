@@ -34,6 +34,7 @@ import json
 import math
 import os
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -674,13 +675,11 @@ def cluster_frames(tricks, seed, frames, amp=14.0, rings=True):
 def invert(markup):
     """Swap the black/white palette so an icon reads on a dark background:
     the disc becomes light, the glyph becomes the page background colour."""
-    return (
-        markup.replace("#111111", "\0L")
-        .replace("#ffffff", "\0D")
-        .replace("#fff", "\0D")
-        .replace("\0L", WEB_FG)
-        .replace("\0D", WEB_BG)
-    )
+    markup = markup.replace("#111111", "\0L").replace("#ffffff", "\0D")
+    # bare 3-digit white, but only as a whole token — never the prefix of a
+    # longer hex like #fffabc (\b after the final 'f' requires a non-hex delimiter).
+    markup = re.sub(r"#fff\b", "\0D", markup)
+    return markup.replace("\0L", WEB_FG).replace("\0D", WEB_BG)
 
 
 WEB_PILL_FS = 18  # category pill font size on the page (px)
@@ -1171,7 +1170,7 @@ def render(svg, path, width, height, renderer):
     print(f"  wrote {os.path.relpath(path, ROOT)}")
 
 
-def render_gif(svgs, path, size, duration_ms):
+def render_gif(svgs, path, size, duration_ms, renderer):
     """Assemble a list of frame SVGs into a looping GIF via Pillow."""
     try:
         from PIL import Image
@@ -1181,8 +1180,10 @@ def render_gif(svgs, path, size, duration_ms):
 
     frames = []
     for svg in svgs:
-        png = render_bytes(svg, size, size, "cairosvg" if _has_cairosvg() else "convert")
+        png = render_bytes(svg, size, size, renderer)
         frames.append(Image.open(io.BytesIO(png)).convert("RGB"))
+    if not frames:
+        sys.exit("animation needs at least 1 frame (use --frames >= 1).")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     frames[0].save(
         path,
@@ -1278,6 +1279,7 @@ def main(argv=None):
             os.path.join(ASSETS, "bag-of-tricks-network.gif"),
             args.gif_size,
             max(1, round(1000 / args.fps)),
+            renderer,
         )
     if "web" in targets:
         print(f"web (seed={args.seed}):")

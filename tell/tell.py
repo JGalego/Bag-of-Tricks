@@ -7,7 +7,7 @@ It does not rewrite — it diagnoses. deadpan prevents tells at generation;
 tell finds them after.
 
     echo "Let's delve into this rich tapestry — it's a testament." | tell.py
-    -> score 90/100, hits: delve, tapestry, testament, em-dash …
+    -> score 100/100, hits: delve, tapestry, testament, rich tapestry, em-dash …
 
     tell.py --json draft.md
     tell.py --max 30 draft.md   # exit 1 in CI if the prose reads too AI
@@ -94,6 +94,7 @@ def _load_dotenv():
     explicit = os.environ.get("BOT_ENV_FILE")
     if explicit:
         load_dotenv(explicit, override=False)
+        return  # BOT_ENV_FILE overrides the search; don't also load a nearby .env
     path = find_dotenv(usecwd=True)
     if path:
         load_dotenv(path, override=False)
@@ -167,7 +168,7 @@ def add_llm_args(parser, llm_flag=True):
 def _llm_first_json(text):
     """Return the first balanced {...}/[...] substring of text, or None."""
     s = (text or "").strip()
-    for fence in ("```json", "```json5", "```jsonc", "```", "~~~json", "~~~"):
+    for fence in ("```json5", "```jsonc", "```json", "```", "~~~json", "~~~"):
         if s.startswith(fence):
             s = s[len(fence) :]
             if s.endswith("```") or s.endswith("~~~"):

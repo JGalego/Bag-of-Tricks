@@ -49,10 +49,10 @@ question — "I'll assume…", "presumably…", "I'll go with…", "defaulting t
 
   L4  …I'll assume…
         I'll assume you mean the production database and drop the table.
-  L9  …defaulting to…
+  L9  …Defaulting to…
         Defaulting to UTC since no timezone was given.
 
-(1 question mark(s) total — did it ask, or just assume?)
+(0 question mark(s) total — did it ask, or just assume?)
 ```
 
 Exits non-zero when it finds guesses, so you can gate a review step on it.

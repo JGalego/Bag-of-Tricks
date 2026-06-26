@@ -19,7 +19,8 @@ It comes in two halves:
   each model id routes to the right backend by its prefix (`claude*` → Anthropic,
   `gpt*`/`o1*`/`o3*`/`chatgpt*` → OpenAI, `gemini*` → Gemini), or you can be
   explicit with a `provider:model` id. `--dry-run` shows the plan with zero
-  dependencies and no network; a real run just needs the matching API key.
+  dependencies and no network; a real run needs the matching API key plus that
+  provider's SDK installed.
 
 ## usage
 

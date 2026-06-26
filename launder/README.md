@@ -56,9 +56,9 @@ echo "sсam" | python3 launder.py --homoglyphs   # that 'с' is Cyrillic
 |----------------|------------------------------------------------------------|
 | `zero_width`   | U+200B ZWSP, U+200C, U+200D, U+2060 word joiner, U+FEFF BOM — stripped |
 | `soft_hyphen`  | U+00AD soft hyphen — removed                                |
-| `smart_quote`  | `“ ” „` → `"`, `‘ ’ ‚` → `'`                                |
-| `em_dash`      | `—` → `--` (default)                                        |
-| `en_dash`      | `–` `−` → `-`                                               |
+| `smart_quote`  | `“ ” „ ‟` → `"`, `‘ ’ ‚ ‛` → `'`                            |
+| `em_dash`      | `—` `―` → `--` (default)                                    |
+| `en_dash`      | `–` `‒` `−` → `-`                                            |
 | `ellipsis`     | `…` (U+2026) → `...`                                        |
 | `exotic_space` | U+00A0 NBSP, U+2009 thin, U+202F narrow NBSP, U+2007, … → a plain space |
 | `homoglyph`    | Cyrillic/Greek look-alikes (`а`→`a`, `о`→`o`, `р`→`p`) — **opt-in** |

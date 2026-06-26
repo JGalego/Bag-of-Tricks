@@ -26,8 +26,8 @@ It comes in two halves:
 ```bash
 # answer from a file, sources from a file
 python3 alibi.py answer.txt --source sources.txt
-# SUPPORTED   [0.83] The Eiffel Tower is 330 metres tall.
-# UNSUPPORTED [0.10] It is painted bright orange every spring.
+# SUPPORTED   [0.94] The Eiffel Tower is 330 metres tall.
+# UNSUPPORTED [0.00] It is painted bright orange every spring.
 # stderr: [alibi] 2 claim(s): 1 supported, 1 unsupported
 
 # answer on stdin, source inline
@@ -53,7 +53,7 @@ python3 alibi.py answer.txt --source sources.txt --report
 | `--threshold F`  | support cutoff; below it a claim is UNSUPPORTED (default 0.5) |
 | `--check`        | print nothing; exit 1 if any claim is unsupported (gates pipelines) |
 | `--report`       | print only the unsupported claims to stdout, exit 0          |
-| `--json`         | emit structured per-claim results (claim, score, supported)  |
+| `--json`         | emit structured per-claim results (claim, score, supported; plus reason with `--llm`) |
 
 ### how it scores
 

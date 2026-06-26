@@ -65,8 +65,9 @@ SHAPES: dict[str, tuple[str, bool]] = {
     "grill": ("analyzer", False),
     "strawman": ("analyzer", False),
     "lineup": ("analyzer", False),
-    "interrobang": ("analyzer", True),
-    "snitch": ("analyzer", False),
+    # interrobang gates via its `check` subcommand, not a --check/--max flag, so
+    # it is not tagged +gate; snitch is a long-running proxy and can't sit in a pipe.
+    "interrobang": ("analyzer", False),
 }
 
 
@@ -212,7 +213,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.input:
-        data = Path(args.input).read_bytes()
+        try:
+            data = Path(args.input).read_bytes()
+        except OSError as e:
+            sys.stderr.write(f"[combo] cannot read input file: {e}\n")
+            return 1
     else:
         data = sys.stdin.buffer.read()
 

@@ -358,7 +358,11 @@ def main(argv: list[str] | None = None) -> int:
     default_types = frozenset(detectors) - {"ipv4"}
 
     if args.files:
-        raw = "".join(open(f, encoding="utf-8").read() for f in args.files)
+        parts = []
+        for f in args.files:
+            with open(f, encoding="utf-8") as fh:
+                parts.append(fh.read())
+        raw = "".join(parts)
     else:
         raw = sys.stdin.read()
 

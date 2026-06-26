@@ -94,7 +94,7 @@ not `--llm`, which reads the raw passage.
 |-------------|----------|
 | overused words | delve, tapestry, testament, crucial, robust, seamless, leverage, vibrant, … |
 | cliché phrases | "it's not just X, it's Y", "in conclusion", "when it comes to", "ever-evolving" |
-| structural     | em-dash overuse, emoji, rule-of-three lists, **bold** runs |
+| structural     | em-dashes (density-weighted), emoji, rule-of-three lists, **bold** runs |
 
 ## the score
 

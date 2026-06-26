@@ -28,15 +28,16 @@ echo "Certainly! It's important to note that we must delve into this rich tapest
   | python3 squeeze.py
 # likely AI-generated (low) — ai-ncd 0.82 < human-ncd 0.87 — heuristic, not proof
 
-# the full breakdown, with a bar
-python3 squeeze.py --report < draft.md
-# likely AI-generated (high) — ai-ncd 0.68 < human-ncd 0.82 — heuristic, not proof
+# the full breakdown, with a bar (the headline example, in detail)
+echo "Certainly! It's important to note that we must delve into this rich tapestry. In conclusion, leverage robust, seamless solutions." \
+  | python3 squeeze.py --report
+# likely AI-generated (low) — ai-ncd 0.82 < human-ncd 0.87 — heuristic, not proof
 #
-#   AI-likelihood   ████████████████████ 100/100
-#   distance to AI corpus      0.6849  (lower = closer)
-#   distance to human corpus   0.8245
-#   margin (human - ai)        +0.1395  (positive leans AI)
-#   compressor                 lzma   words 58
+#   AI-likelihood   ███████████████····· 77/100
+#   distance to AI corpus      0.8219  (lower = closer)
+#   distance to human corpus   0.8670
+#   margin (human - ai)        +0.0451  (positive leans AI)
+#   compressor                 lzma   words 20   chunks 1
 
 # the structured verdict
 python3 squeeze.py --json < draft.md
@@ -51,6 +52,7 @@ python3 squeeze.py --json < draft.md
 | `--score`        | print just the integer AI-likelihood (0-100)                 |
 | `--json`         | emit the structured dict                                     |
 | `--algo`         | compressor: `lzma` (default, best signal), `zlib` (fastest), `bz2` |
+| `--chunk N`      | window size in chars for long inputs (default: 2000)         |
 | `--ai-corpus`    | override the known-AI reference corpus with your own file    |
 | `--human-corpus` | override the known-human reference corpus                    |
 | `--max N`        | exit 1 if AI-likelihood > N (gate prose in CI)               |

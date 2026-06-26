@@ -42,7 +42,7 @@ PRICES: dict[str, dict[str, float]] = {
 }
 
 
-def count_tokens(text: str, model: str | None = None) -> int:
+def count_tokens(text: str) -> int:
     """Estimate the number of tokens in *text*.
 
     If tiktoken is importable, use it (o200k_base, a reasonable modern default;
@@ -97,7 +97,11 @@ def cost(model: str, in_tokens: int, out_tokens: int = 0) -> dict:
 
 def _read_input(files: list[str]) -> str:
     if files:
-        return "".join(open(f, encoding="utf-8").read() for f in files)
+        parts = []
+        for f in files:
+            with open(f, encoding="utf-8") as fh:
+                parts.append(fh.read())
+        return "".join(parts)
     return sys.stdin.read()
 
 
@@ -148,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
         p.error(f"unknown model {args.model!r}; known models: {known}")
 
     text = _read_input(args.files)
-    in_tokens = count_tokens(text, args.model)
+    in_tokens = count_tokens(text)
 
     if args.tokens_only:
         print(in_tokens)

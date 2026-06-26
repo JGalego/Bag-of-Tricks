@@ -43,7 +43,7 @@ echo 'blah {"a": None,} blah' | python3 salvage.py --extract-only
 | markdown fences                | ```` ```json … ``` ```` | the contents   |
 | prose before/after             | `here: {…} thanks` | the `{…}`      |
 | trailing commas                | `{"a":1,}`         | `{"a":1}`      |
-| `//` and `/* */` comments      | `{"a":1 // note}`  | `{"a":1}`      |
+| `//` and `/* */` comments      | `{"a":1 /* x */}`  | `{"a":1}`      |
 | Python literals                | `True/False/None`  | `true/false/null` |
 | smart quotes                   | `“a”: “b”`         | `"a": "b"`     |
 

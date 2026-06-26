@@ -1,6 +1,6 @@
 ---
 name: grill
-description: Adversarially interrogate an answer before trusting it — generate probing follow-up questions that attack its weak points across hidden assumptions, missing edge cases, internal contradictions, unsupported claims ("what's the source?"), overconfidence, and "what would change your mind?", then optionally run them against Claude to see whether the answer holds up or cracks. Use to stress-test a draft answer or another model's output before you ship or trust it.
+description: Adversarially interrogate an answer before trusting it — generate probing follow-up questions that attack its weak points across hidden assumptions, missing edge cases, internal contradictions, unsupported claims ("what's the source?"), overconfidence, and "what would change your mind?", then optionally run them against a model to see whether the answer holds up or cracks. Use to stress-test a draft answer or another model's output before you ship or trust it.
 ---
 
 # grill

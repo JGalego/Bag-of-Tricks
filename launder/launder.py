@@ -73,14 +73,6 @@ _SMART_QUOTE: dict[str, str] = {
 _EM_DASH_DEFAULT = "--"
 _EN_DASH_DEFAULT = "-"
 
-_DASH: dict[str, str] = {
-    "—": _EM_DASH_DEFAULT,  # EM DASH
-    "–": _EN_DASH_DEFAULT,  # EN DASH
-    "‒": _EN_DASH_DEFAULT,  # FIGURE DASH
-    "―": _EM_DASH_DEFAULT,  # HORIZONTAL BAR
-    "−": "-",  # MINUS SIGN
-}
-
 # Unicode horizontal ellipsis -> three ASCII dots.
 _ELLIPSIS: dict[str, str] = {
     "…": "...",  # HORIZONTAL ELLIPSIS
@@ -193,9 +185,9 @@ def _build_table(
 ) -> dict[str, tuple[str, str]]:
     """Flatten the per-category maps into ``char -> (category, replacement)``.
 
-    The dash maps overlap conceptually with ``_DASH``; we build straight from
-    the per-category maps so each character reports the right category. ``extra``
-    is a merged ``{category: {char: replacement}}`` map of user patterns: known
+    We build straight from the per-category ``_BASE_MAPS`` so each character
+    reports the right category (``em_dash``, ``en_dash``, …). ``extra`` is a
+    merged ``{category: {char: replacement}}`` map of user patterns: known
     categories extend the built-ins, new categories are added, and per-character
     collisions let the user entry win (it is applied last).
     """

@@ -6,8 +6,8 @@ a trailing comma, a stray `True`, and a closing "Let me know if…".
 `salvage` is a stdin->stdout filter that locates the first JSON value
 in chatty LLM output, repairs the usual damage, and emits clean JSON.
 
-    echo 'Sure! ```json\\n{"ok": True,}\\n```' | salvage.py
-    -> {"ok": true}  (pretty-printed)
+    echo 'Sure! ```json\\n{"ok": True,}\\n```' | salvage.py --compact
+    -> {"ok":true}      # default pretty-prints; --compact emits one line
 
     salvage.py --compact reply.txt
 
@@ -258,7 +258,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.files:
-        raw = "".join(open(f, encoding="utf-8").read() for f in args.files)
+        parts = []
+        for f in args.files:
+            with open(f, encoding="utf-8") as fh:
+                parts.append(fh.read())
+        raw = "".join(parts)
     else:
         raw = sys.stdin.read()
 

@@ -328,6 +328,7 @@ PROVIDERS = {
     },
 }
 LLM_TIMEOUT = 90.0  # network calls get a longer leash than the offline tricks
+MAX_REQUEST_BYTES = 8 * 1024 * 1024  # cap /api/run bodies so a huge POST can't OOM us
 
 
 def load_dotenv() -> list[str]:
@@ -857,6 +858,12 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             length = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            length = 0
+        if length > MAX_REQUEST_BYTES:
+            self._json(413, {"error": f"request too large (> {MAX_REQUEST_BYTES} bytes)"})
+            return
+        try:
             payload = json.loads(self.rfile.read(length) or b"{}")
             self._json(200, execute(payload))
         except Exception as exc:  # noqa: BLE001 - report, never crash the loop

@@ -243,7 +243,7 @@ def main(argv: list[str] | None = None) -> int:
     dead = [r for r in results if not r["ok"]]
 
     if args.json:
-        sys.stdout.write(json.dumps(results, indent=2) + "\n")
+        sys.stdout.write(json.dumps(dead if args.quiet else results, indent=2) + "\n")
     else:
         shown = dead if args.quiet else results
         for r in shown:

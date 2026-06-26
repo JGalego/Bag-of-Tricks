@@ -15,8 +15,9 @@ It comes in two halves:
   that tells the model to fold when the evidence is thin: say "I don't know"
   instead of bluffing, earn its absolutes, and prefer calibrated uncertainty
   over a confident wrong answer.
-- **`fold.py`** — a zero-dependency `stdin->stdout` filter that flags
-  overconfidence markers in a draft and tags each one `[FOLD:type]` so you can
+- **`fold.py`** — a zero-dependency `stdin->stdout` filter (the `--llm` mode needs
+  a provider SDK) that flags overconfidence markers in a draft and tags each one
+  `[FOLD:type]` so you can
   see exactly where the answer is bluffing. Tagged text to stdout, the summary
   to stderr.
 

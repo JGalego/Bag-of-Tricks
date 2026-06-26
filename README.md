@@ -117,7 +117,7 @@ Grab the whole bag — no clone, no `just`. Downloads the repo, then symlinks ev
 curl -fsSL https://raw.githubusercontent.com/JGalego/Bag-of-Tricks/main/install.sh | bash
 ```
 
-It discovers tricks by scanning the tree, so it always installs the full set. Knobs: `BIN_DIR`, `BOT_HOME`, `BOT_REF` (branch/tag), `BOT_SKILLS`. Make sure `~/.local/bin` is on your `PATH`.
+It discovers tricks by scanning the tree, so it always installs the full set. Knobs: `BOT_REPO`, `BIN_DIR`, `BOT_HOME`, `BOT_REF` (branch/tag), `BOT_SKILLS`. Make sure `~/.local/bin` is on your `PATH`.
 
 Pin to a [release](https://github.com/JGalego/Bag-of-Tricks/releases) by pointing `BOT_REF` at a tag — `v0.2.0` for a bag release, `frisk-v0.2.0` for a single trick:
 
@@ -176,7 +176,7 @@ shell.
 
 ## development
 
-Quality is enforced with [ruff](https://docs.astral.sh/ruff/) (lint + format) and [pytest](https://docs.pytest.org/) — each trick has a `test_<trick>.py` beside it. Everything runs with no network and no API key (`strawman`'s tests stub the SDK).
+Quality is enforced with [ruff](https://docs.astral.sh/ruff/) (lint + format) and [pytest](https://docs.pytest.org/) — each trick has a `test_<trick>.py` beside it. Everything runs with no network and no API key (the model-backed tricks stub the SDK).
 
 ```bash
 just dev          # pip install -r requirements-dev.txt (ruff + pytest)

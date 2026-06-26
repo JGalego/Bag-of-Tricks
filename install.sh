@@ -13,6 +13,7 @@
 #   BOT_REF    branch/tag/commit      (default: main)
 #   BOT_HOME   where to keep the repo (default: ~/.bag-of-tricks)
 #   BIN_DIR    where CLIs are linked  (default: ~/.local/bin)
+#   BOT_SKILLS where SKILL.md links go (default: ~/.claude/skills)
 set -euo pipefail
 
 REPO="${BOT_REPO:-JGalego/Bag-of-Tricks}"

@@ -79,7 +79,7 @@ gate a deploy on it:
 - run: python3 strawman/strawman.py prompts/agent.txt
 ```
 
-A clean run (everything `none`/`low`) exits `0`.
+A run whose worst severity is below high (`none`/`low`/`medium`) exits `0`.
 
 ## skill
 

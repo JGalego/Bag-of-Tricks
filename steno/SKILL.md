@@ -1,6 +1,6 @@
 ---
 name: steno
-description: Expand a mind-numbingly short alias into a full, well-formed prompt for a common dev task — review, tests, explain, types, optimize, simplify, names, regex, sql, tldr, commit message, PR description — optionally running it against Claude. Use when the user references a steno alias, asks to compose a standard dev prompt quickly, or wants the alias vocabulary.
+description: Expand a mind-numbingly short alias into a full, well-formed prompt for a common dev task — explain, review, tests, docstrings, types, fix, optimize, simplify, names, regex, sql, shell, tldr, commit message, PR description — optionally running it against a model. Use when the user references a steno alias, asks to compose a standard dev prompt quickly, or wants the alias vocabulary.
 ---
 
 # steno

@@ -11,7 +11,7 @@ A model leaves fingerprints. This skill is for spotting them — reading a passa
 and naming the exact words and structures that scream "generated", so they can be
 rewritten by hand.
 
-## what counts as a tell
+## What counts as a tell
 
 1. **Overused words.** delve, tapestry, testament, realm, navigate, underscore,
    leverage, robust, seamless, crucial, pivotal, multifaceted, nuanced,
@@ -28,14 +28,14 @@ rewritten by hand.
 A single tell is noise; a cluster is a confession. Weigh density, not just
 presence.
 
-## example
+## Example
 
 > **Tell-ridden:** Let's delve into the rich tapestry of modern computing — a
 > testament to human ingenuity. It's not just a tool, it's a revolution that
 > plays a crucial role in our ever-evolving world.
 >
 > **Diagnosis:** delve, tapestry, testament, "it's not just X, it's Y",
-> "plays a crucial role", "ever-evolving", two em-dashes — score ~95/100.
+> "plays a crucial role", "ever-evolving", one em-dash — score ~99/100.
 > Rewrite from scratch; nothing here survives.
 
 ## Output

@@ -4,11 +4,11 @@
 Mind-numbingly short aliases for the prompts you type all day. `steno r app.py`
 expands the alias `r` into a full "review this code…" prompt with the file's
 contents spliced in, and prints it — pipe it into any LLM, or pass `--run` to
-send it to Claude directly.
+send it to an LLM directly.
 
     steno r src/app.py            # review  -> prints the expanded prompt
     steno t utils.py              # tests
-    steno c                       # commit message from `git diff --cached`
+    steno c                       # commit message from the git diff (staged, else working tree)
     steno e parser.py | deadpan   # compose with the rest of the bag
     steno rx "match an iso date"  # free-text input instead of a file
     steno r app.py --run          # actually send it to an LLM (any provider)
@@ -85,6 +85,7 @@ def _load_dotenv():
     explicit = os.environ.get("BOT_ENV_FILE")
     if explicit:
         load_dotenv(explicit, override=False)
+        return  # BOT_ENV_FILE overrides the search; don't also load a nearby .env
     path = find_dotenv(usecwd=True)
     if path:
         load_dotenv(path, override=False)
@@ -158,7 +159,7 @@ def add_llm_args(parser, llm_flag=True):
 def _llm_first_json(text):
     """Return the first balanced {...}/[...] substring of text, or None."""
     s = (text or "").strip()
-    for fence in ("```json", "```json5", "```jsonc", "```", "~~~json", "~~~"):
+    for fence in ("```json5", "```jsonc", "```json", "```", "~~~json", "~~~"):
         if s.startswith(fence):
             s = s[len(fence) :]
             if s.endswith("```") or s.endswith("~~~"):
@@ -508,7 +509,7 @@ def cmd_list(aliases: dict[str, tuple[str, str]]) -> int:
         first = template.split("\n", 1)[0]
         snippet = first if len(first) <= 60 else first[:60] + "…"
         print(f"  {_c('cyan', f'{key:>4}')}  {name:<10} {_c('dim', snippet)}")
-    print(_c("dim", "\n  steno <alias> <file|text>   ·   add --run to send it to Claude"))
+    print(_c("dim", "\n  steno <alias> <file|text>   ·   add --run to send it to an LLM"))
     return 0
 
 
@@ -535,17 +536,7 @@ def main(argv=None) -> int:
     p.add_argument("rest", nargs="*", help="file(s) or free text to splice in")
     p.add_argument("--text", help="use this literal text as the input")
     p.add_argument("--run", action="store_true", help="send the prompt to an LLM")
-    p.add_argument(
-        "--provider",
-        choices=_LLM_PROVIDERS,
-        default=None,
-        help="LLM provider for --run (default: auto-detect from whichever API key is set)",
-    )
-    p.add_argument(
-        "--model",
-        default=None,
-        help="model id for --run (default: the provider's default, or *_MODEL / BOT_LLM_MODEL)",
-    )
+    add_llm_args(p, llm_flag=False)  # --provider / --model for --run (shared helper)
     p.add_argument("--aliases", help="path to a user aliases file")
     args = p.parse_args(argv)
 

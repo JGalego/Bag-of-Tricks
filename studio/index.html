@@ -187,8 +187,8 @@
         <div class="menu" id="examplesMenu"></div>
       </div>
       <button class="btn" id="sampleBtn" title="load a sample routine">sample</button>
-      <button class="btn" id="openBtn" title="open a pipeline from a .json file">open</button>
-      <button class="btn" id="saveBtn" title="save this pipeline to a .json file">save</button>
+      <button class="btn" id="openBtn" title="open a pipeline from a .md file">open</button>
+      <button class="btn" id="saveBtn" title="save this pipeline to a .md file">save</button>
       <button class="btn" id="clearBtn" title="remove all trick nodes">clear</button>
       <button class="btn primary" id="runBtn">▶ run</button>
       <input type="file" id="fileInput" accept=".md,.markdown,.mmd,.txt,.json" hidden>
@@ -327,7 +327,7 @@ function chip(t){
   c.style.borderLeft = `3px solid ${state.cats[t.cat].color}`;
   c.innerHTML = `<span class="nm">${t.name}</span>
     <span class="badge"><span class="sh">${t.shape==="filter"?"▷ filter":"■ sink"}</span>
-    ${t.gate?'<span class="mk" title="has a gate mode (--check) that can abort the branch">⛔</span>':''}
+    ${t.gate?'<span class="mk" title="has a gate mode (--check/--max) that can abort the branch">⛔</span>':''}
     ${t.net?'<span class="mk" title="calls a model / the network — slow, may need an API key">☁</span>':''}</span>`;
   c.title = t.catchphrase + "  —  " + t.blurb;
   c.addEventListener("dragstart", e => e.dataTransfer.setData("trick", t.name));

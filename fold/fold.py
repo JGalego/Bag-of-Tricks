@@ -85,6 +85,7 @@ def _load_dotenv():
     explicit = os.environ.get("BOT_ENV_FILE")
     if explicit:
         load_dotenv(explicit, override=False)
+        return  # BOT_ENV_FILE overrides the search; don't also load a nearby .env
     path = find_dotenv(usecwd=True)
     if path:
         load_dotenv(path, override=False)
@@ -158,7 +159,7 @@ def add_llm_args(parser, llm_flag=True):
 def _llm_first_json(text):
     """Return the first balanced {...}/[...] substring of text, or None."""
     s = (text or "").strip()
-    for fence in ("```json", "```json5", "```jsonc", "```", "~~~json", "~~~"):
+    for fence in ("```json5", "```jsonc", "```json", "```", "~~~json", "~~~"):
         if s.startswith(fence):
             s = s[len(fence) :]
             if s.endswith("```") or s.endswith("~~~"):
@@ -698,13 +699,14 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(json.dumps(payload, indent=2) + "\n")
         return 1 if (args.check and findings) else 0
 
-    # --report: list the tells to stdout, exit 0.
+    # --report: list the tells to stdout. Honors --check as a gate (like --json),
+    # so `--check --report` still exits 1 when there are findings.
     if args.report:
         if findings:
             sys.stdout.write("\n".join(_summary_lines(findings)) + "\n")
         else:
             sys.stdout.write("clean — nothing to fold\n")
-        return 0
+        return 1 if (args.check and findings) else 0
 
     # Summary to stderr in every non-json, non-report mode.
     if findings:

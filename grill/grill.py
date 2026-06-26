@@ -5,7 +5,7 @@ Hand it an ANSWER (and optionally the original question) and it cross-examines
 it: hidden assumptions, missing edge cases, internal contradictions, unsupported
 claims, overconfidence, and "what would change your mind?". It generates the
 sharp follow-ups that attack the answer's weak points, then (optionally) runs
-them against Claude to see whether the answer holds up or cracks under
+them against a model to see whether the answer holds up or cracks under
 questioning. The stress-test you run on an answer before you trust it.
 
 Cousin of strawman: strawman red-teams a PROMPT, grill cross-examines an ANSWER.
@@ -85,6 +85,7 @@ def _load_dotenv():
     explicit = os.environ.get("BOT_ENV_FILE")
     if explicit:
         load_dotenv(explicit, override=False)
+        return  # BOT_ENV_FILE overrides the search; don't also load a nearby .env
     path = find_dotenv(usecwd=True)
     if path:
         load_dotenv(path, override=False)
@@ -158,7 +159,7 @@ def add_llm_args(parser, llm_flag=True):
 def _llm_first_json(text):
     """Return the first balanced {...}/[...] substring of text, or None."""
     s = (text or "").strip()
-    for fence in ("```json", "```json5", "```jsonc", "```", "~~~json", "~~~"):
+    for fence in ("```json5", "```jsonc", "```json", "```", "~~~json", "~~~"):
         if s.startswith(fence):
             s = s[len(fence) :]
             if s.endswith("```") or s.endswith("~~~"):
@@ -348,10 +349,6 @@ def llm_complete(
 
 # --- end llm backend ------------------------------------------------------
 
-# Last-resort default model is per provider; --model defaults to None so
-# the resolved provider's default model is used unless the caller overrides it.
-MODEL = "claude-opus-4-8"
-
 # The interrogation. Each angle is an independent adversarial lens on the answer.
 # `probe` is the boilerplate question grill asks under that angle in --dry-run;
 # `instruction` is what it tells the model to do under that angle on a real run.
@@ -484,11 +481,16 @@ def _print_finding(f: dict) -> None:
     print(f"      {_c('dim', 'reveals:')} {f.get('finding', '')}")
 
 
+def _verdict_idx(verdict: str) -> int:
+    """Index into VERDICT_ORDER; an unknown verdict from a model sorts lowest."""
+    return VERDICT_ORDER.index(verdict) if verdict in VERDICT_ORDER else 0
+
+
 def _worst(findings: list[dict]) -> str:
     worst = "holds"
     for f in findings:
         v = f.get("verdict", "holds")
-        if VERDICT_ORDER.index(v) > VERDICT_ORDER.index(worst):
+        if _verdict_idx(v) > _verdict_idx(worst):
             worst = v
     return worst
 
@@ -520,7 +522,7 @@ def run(answer: str, question: str, angles: list[str], provider=None, model=None
             except Exception as e:  # noqa: BLE001
                 print(_c("red", f"  ! {name} angle errored: {e}"), file=sys.stderr)
 
-    findings.sort(key=lambda f: VERDICT_ORDER.index(f.get("verdict", "holds")), reverse=True)
+    findings.sort(key=lambda f: _verdict_idx(f.get("verdict", "holds")), reverse=True)
     print(_c("bold", "── cross-examination " + "─" * 51))
     for f in findings:
         _print_finding(f)
@@ -532,7 +534,7 @@ def run(answer: str, question: str, angles: list[str], provider=None, model=None
     print(_c(_VERDICT_COLOR.get(worst, "green"), _c("bold", "verdict: " + verdict)))
 
     # CI-friendly: fail if the answer cracked or went shaky anywhere.
-    return 1 if VERDICT_ORDER.index(worst) >= VERDICT_ORDER.index("shaky") else 0
+    return 1 if _verdict_idx(worst) >= _verdict_idx("shaky") else 0
 
 
 def dry_run(angles: list[str], question: str = "") -> int:

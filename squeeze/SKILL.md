@@ -15,7 +15,7 @@ word — it just weighs the bytes.
 
 This is the compression cousin of thinkst's [`zippy`](https://github.com/thinkst/zippy).
 
-## how it reads
+## How it reads
 
 - **distance to AI corpus** (`ai_ncd`) — lower means the bytes fold into known-AI
   text tightly: shared clichés, rhythms, scaffolding.
@@ -28,7 +28,7 @@ This is the compression cousin of thinkst's [`zippy`](https://github.com/thinkst
 NCD ≈ 0 means "nearly identical structure", ≈ 1 means "nothing shared". The
 absolute numbers run high for short text — what matters is the *gap* between them.
 
-## example
+## Example
 
 > **Input:** "Certainly! It's important to note that we must delve into this
 > rich tapestry. In conclusion, leverage robust, seamless solutions."
@@ -43,7 +43,7 @@ narration of running `squeeze.py`. Always carry the hedge: this is a hunch from
 how the bytes compress, never proof of authorship. Don't explain the tool; report
 what it found and stop.
 
-## when it's unreliable (say so)
+## When it's unreliable (say so)
 
 - **Short text** (< ~40 words): too little signal; force confidence to low.
 - **Code, tables, logs, non-English:** the corpora are English prose; off-genre
@@ -72,7 +72,7 @@ what it found and stop.
     squeeze.py --ai-corpus ai.txt draft.md  # bring your own reference corpus
     squeeze.py --max 60 draft.md            # exit 1 if AI-likelihood > 60 (CI gate)
 
-## the detection family
+## The detection family
 
 Three different lenses on the same question — *did a machine write this?*
 

@@ -53,7 +53,7 @@ Read a verdict as "this *smells* like X," never "X wrote this."
 > **Text:** Certainly! I'd be happy to help. It's important to note that we
 > should weigh the options. In conclusion, the plan is sound.
 >
-> **Mugshot:** most likely **gpt-ish** (medium confidence). Prints lifted:
+> **Mugshot:** most likely **gpt-ish** (high confidence). Prints lifted:
 > "Certainly!", "I'd be happy to", "It's important to note", "In conclusion".
 > Heuristic, not proof — a human could have typed every one of those.
 

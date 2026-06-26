@@ -83,6 +83,7 @@ def _load_dotenv():
     explicit = os.environ.get("BOT_ENV_FILE")
     if explicit:
         load_dotenv(explicit, override=False)
+        return  # BOT_ENV_FILE overrides the search; don't also load a nearby .env
     path = find_dotenv(usecwd=True)
     if path:
         load_dotenv(path, override=False)
@@ -156,7 +157,7 @@ def add_llm_args(parser, llm_flag=True):
 def _llm_first_json(text):
     """Return the first balanced {...}/[...] substring of text, or None."""
     s = (text or "").strip()
-    for fence in ("```json", "```json5", "```jsonc", "```", "~~~json", "~~~"):
+    for fence in ("```json5", "```jsonc", "```json", "```", "~~~json", "~~~"):
         if s.startswith(fence):
             s = s[len(fence) :]
             if s.endswith("```") or s.endswith("~~~"):

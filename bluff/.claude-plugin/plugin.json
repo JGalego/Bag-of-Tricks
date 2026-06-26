@@ -1,6 +1,6 @@
 {
   "name": "bluff",
-  "description": "call its bluff. — extract the URLs and citations from an answer and check they actually resolve, catching hallucinated links. Ships a skill and a `bluff` CLI.",
+  "description": "call its bluff. — extract the URLs and citations from an answer and check the links actually resolve, catching hallucinated ones. Ships a skill and a `bluff` CLI.",
   "version": "0.1.0",
   "author": { "name": "João Galego" },
   "license": "MIT",

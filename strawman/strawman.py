@@ -83,6 +83,7 @@ def _load_dotenv():
     explicit = os.environ.get("BOT_ENV_FILE")
     if explicit:
         load_dotenv(explicit, override=False)
+        return  # BOT_ENV_FILE overrides the search; don't also load a nearby .env
     path = find_dotenv(usecwd=True)
     if path:
         load_dotenv(path, override=False)
@@ -156,7 +157,7 @@ def add_llm_args(parser, llm_flag=True):
 def _llm_first_json(text):
     """Return the first balanced {...}/[...] substring of text, or None."""
     s = (text or "").strip()
-    for fence in ("```json", "```json5", "```jsonc", "```", "~~~json", "~~~"):
+    for fence in ("```json5", "```jsonc", "```json", "```", "~~~json", "~~~"):
         if s.startswith(fence):
             s = s[len(fence) :]
             if s.endswith("```") or s.endswith("~~~"):
@@ -346,10 +347,6 @@ def llm_complete(
 
 # --- end llm backend ------------------------------------------------------
 
-# Last-resort default model is per provider; --model defaults to None so
-# the resolved provider's default model is used unless the caller overrides it.
-MODEL = "claude-opus-4-8"
-
 # The attack battery. Each is an independent adversarial lens.
 ATTACKS: dict[str, str] = {
     "jailbreak": (
@@ -453,11 +450,16 @@ def _print_finding(f: dict) -> None:
         print(f"      {_c('dim', 'holds against this category.')}")
 
 
+def _sev_idx(severity: str) -> int:
+    """Index into SEVERITY_ORDER; an unknown severity from a model sorts lowest."""
+    return SEVERITY_ORDER.index(severity) if severity in SEVERITY_ORDER else 0
+
+
 def _worst(findings: list[dict]) -> str:
     worst = "none"
     for f in findings:
         s = f.get("severity", "none")
-        if SEVERITY_ORDER.index(s) > SEVERITY_ORDER.index(worst):
+        if _sev_idx(s) > _sev_idx(worst):
             worst = s
     return worst
 
@@ -486,7 +488,7 @@ def run(target: str, attacks: list[str], provider=None, model=None) -> int:
             except Exception as e:  # noqa: BLE001
                 print(_c("red", f"  ! {name} attack errored: {e}"), file=sys.stderr)
 
-    findings.sort(key=lambda f: SEVERITY_ORDER.index(f.get("severity", "none")), reverse=True)
+    findings.sort(key=lambda f: _sev_idx(f.get("severity", "none")), reverse=True)
     print(_c("bold", "── findings " + "─" * 60))
     for f in findings:
         _print_finding(f)
@@ -549,7 +551,12 @@ def main(argv=None) -> int:
         return dry_run(attacks)
 
     if args.file:
-        target = open(args.file, encoding="utf-8").read()
+        try:
+            with open(args.file, encoding="utf-8") as fh:
+                target = fh.read()
+        except OSError as e:
+            print(f"cannot read {args.file}: {e}", file=sys.stderr)
+            return 2
     else:
         if sys.stdin.isatty():
             print(

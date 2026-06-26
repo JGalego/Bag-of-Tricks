@@ -15,7 +15,7 @@ all throw it off. Treat the verdict as a hunch with a confidence band, the way
 names the model, `squeeze` never reads a word — it just weighs the bytes.
 
     echo "Certainly! It's important to note that we must delve into this." | squeeze.py
-    -> likely AI-generated (low) — ai-ncd 0.86 < human-ncd 0.88 — heuristic, not proof
+    -> likely AI-generated (low) — ai-ncd 0.88 < human-ncd 0.89 — heuristic, not proof
 
     squeeze.py --report draft.md            # the full breakdown
     squeeze.py --json draft.md              # the structured verdict
@@ -145,10 +145,12 @@ def _chunks(text: str, size: int) -> list[str]:
             out.append(text[start:])
             break
         end = text.rfind(" ", start, start + size + 1)
-        if end <= start:  # no break point — hard cut
-            end = start + size
-        out.append(text[start:end])
-        start = end + 1
+        if end <= start:  # no space to break on — hard cut, consume no delimiter
+            out.append(text[start : start + size])
+            start += size
+        else:
+            out.append(text[start:end])
+            start = end + 1  # skip the space we broke on
     out = [c for c in out if c.strip()]
     return out or [text]
 

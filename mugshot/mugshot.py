@@ -15,7 +15,7 @@ Where `tell` flags the giveaways in AI prose, mugshot uses those same prints to
 *name a suspect* — it lines the families up and points at the most likely one.
 
     echo "Certainly! I'd be happy to help. It's important to note..." | mugshot.py
-    -> most likely: gpt-ish (medium confidence) — probabilistic guess, not proof
+    -> most likely: gpt-ish (high confidence) — probabilistic guess, not proof
 
     mugshot.py --report draft.md   # every matched print + offset
     mugshot.py --all draft.md      # full ranked scoreboard
@@ -99,6 +99,7 @@ def _load_dotenv():
     explicit = os.environ.get("BOT_ENV_FILE")
     if explicit:
         load_dotenv(explicit, override=False)
+        return  # BOT_ENV_FILE overrides the search; don't also load a nearby .env
     path = find_dotenv(usecwd=True)
     if path:
         load_dotenv(path, override=False)
@@ -172,7 +173,7 @@ def add_llm_args(parser, llm_flag=True):
 def _llm_first_json(text):
     """Return the first balanced {...}/[...] substring of text, or None."""
     s = (text or "").strip()
-    for fence in ("```json", "```json5", "```jsonc", "```", "~~~json", "~~~"):
+    for fence in ("```json5", "```jsonc", "```json", "```", "~~~json", "~~~"):
         if s.startswith(fence):
             s = s[len(fence) :]
             if s.endswith("```") or s.endswith("~~~"):
@@ -738,68 +739,95 @@ def main(argv: list[str] | None = None) -> int:
         metavar="FILE",
         help="merge custom parlor prints from a JSON file (repeatable)",
     )
-    add_llm_args(p)
+    # mugshot's --llm has trick-specific semantics (the model pass is the default
+    # when a key is set; --llm only forces it), so it gets its own help string and
+    # the shared helper only contributes --provider / --model.
+    p.add_argument(
+        "--llm",
+        action="store_true",
+        help="force the model-backed authorship pass (it's already the default when a key is set)",
+    )
+    add_llm_args(p, llm_flag=False)
     args = p.parse_args(argv)
 
     # Custom prints: explicit --patterns win, else the MUGSHOT_PATTERNS env var.
     pattern_files = list(args.patterns)
     if not pattern_files and os.environ.get("MUGSHOT_PATTERNS"):
         pattern_files = [p for p in os.environ["MUGSHOT_PATTERNS"].split(os.pathsep) if p.strip()]
-    if pattern_files:
-        try:
-            _apply_pattern_files(pattern_files)
-        except (OSError, ValueError, json.JSONDecodeError, re.error) as e:
-            sys.stderr.write(f"[mugshot] could not load patterns: {e}\n")
-            return 2
 
-    if args.files:
-        raw = "".join(open(f, encoding="utf-8").read() for f in args.files)
-    else:
-        raw = sys.stdin.read()
+    # Custom prints mutate the module-global SUSPECTS / _COMPILED. Snapshot and
+    # restore them around the run so repeated in-process main() calls (e.g. the
+    # studio) don't leak one invocation's prints into the next.
+    saved_suspects = {k: list(v) for k, v in SUSPECTS.items()}
+    saved_compiled = _COMPILED
+    try:
+        if pattern_files:
+            try:
+                _apply_pattern_files(pattern_files)
+            except (OSError, ValueError, json.JSONDecodeError, re.error) as e:
+                sys.stderr.write(f"[mugshot] could not load patterns: {e}\n")
+                return 2
 
-    # Path selection:
-    #   --parlor          -> always the offline regex heuristic
-    #   --llm             -> always the model (fail loud, no silent fallback)
-    #   neither (default) -> model if a provider key is configured, else parlor
-    #                        (with a note that real attribution needs a key)
-    if args.parlor:
-        result = mugshot(raw)
-    elif args.llm:
-        try:
-            result = mugshot_llm(raw, provider=args.provider, model=args.model)
-        except LLMError as e:
-            sys.stderr.write(f"[mugshot] llm mode failed: {e}\n")
-            return 2
-    elif llm_available(args.provider):
-        try:
-            result = mugshot_llm(raw, provider=args.provider, model=args.model)
-        except LLMError as e:
+        if args.files:
+            try:
+                parts = []
+                for f in args.files:
+                    with open(f, encoding="utf-8") as fh:
+                        parts.append(fh.read())
+                raw = "".join(parts)
+            except OSError as e:
+                sys.stderr.write(f"[mugshot] could not read input: {e}\n")
+                return 2
+        else:
+            raw = sys.stdin.read()
+
+        # Path selection:
+        #   --parlor          -> always the offline regex heuristic
+        #   --llm             -> always the model (fail loud, no silent fallback)
+        #   neither (default) -> model if a provider key is configured, else parlor
+        #                        (with a note that real attribution needs a key)
+        if args.parlor:
+            result = mugshot(raw)
+        elif args.llm:
+            try:
+                result = mugshot_llm(raw, provider=args.provider, model=args.model)
+            except LLMError as e:
+                sys.stderr.write(f"[mugshot] llm mode failed: {e}\n")
+                return 2
+        elif llm_available(args.provider):
+            try:
+                result = mugshot_llm(raw, provider=args.provider, model=args.model)
+            except LLMError as e:
+                sys.stderr.write(
+                    f"[mugshot] llm mode failed ({e}); falling back to the offline heuristic\n"
+                )
+                result = mugshot(raw)
+        else:
             sys.stderr.write(
-                f"[mugshot] llm mode failed ({e}); falling back to the offline heuristic\n"
+                "[mugshot] no provider key configured — using the offline regex heuristic. "
+                "Set an API key (or pass --llm) for real model-backed attribution.\n"
             )
             result = mugshot(raw)
-    else:
-        sys.stderr.write(
-            "[mugshot] no provider key configured — using the offline regex heuristic. "
-            "Set an API key (or pass --llm) for real model-backed attribution.\n"
-        )
-        result = mugshot(raw)
 
-    if args.json:
-        sys.stdout.write(json.dumps(result, ensure_ascii=False) + "\n")
-    elif args.report:
-        sys.stdout.write("\n".join(_report_lines(result)) + "\n")
-    elif args.all:
-        sys.stdout.write("\n".join(_scoreboard_lines(result)) + "\n")
-    else:
-        sys.stdout.write(_verdict_line(result) + "\n")
-        if result["prints"]:
-            shown = ", ".join(
-                f"{p['suspect']}:{_preview(p['match'])}" for p in result["prints"][:6]
-            )
-            sys.stdout.write(f"prints: {shown}\n")
+        if args.json:
+            sys.stdout.write(json.dumps(result, ensure_ascii=False) + "\n")
+        elif args.report:
+            sys.stdout.write("\n".join(_report_lines(result)) + "\n")
+        elif args.all:
+            sys.stdout.write("\n".join(_scoreboard_lines(result)) + "\n")
+        else:
+            sys.stdout.write(_verdict_line(result) + "\n")
+            if result["prints"]:
+                shown = ", ".join(
+                    f"{p['suspect']}:{_preview(p['match'])}" for p in result["prints"][:6]
+                )
+                sys.stdout.write(f"prints: {shown}\n")
 
-    return 0
+        return 0
+    finally:
+        SUSPECTS.clear()
+        SUSPECTS.update(saved_suspects)
+        globals()["_COMPILED"] = saved_compiled
 
 
 if __name__ == "__main__":
