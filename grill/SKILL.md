@@ -79,9 +79,11 @@ genuinely changes what to do next.
 the interrogation plan (`grill.py answer.txt --dry-run` — the angles and the
 concrete questions it would ask, zero dependencies, no network), add
 `--question "..."` to give it the original prompt for context, or drop `--dry-run`
-(with `pip install anthropic` and an `ANTHROPIC_API_KEY`) to actually run the
-questions against Claude and get a per-angle verdict on whether the answer
-cracked.
+to actually run the questions against a model and get a per-angle verdict on
+whether the answer cracked. A real run needs just one API key — any of
+`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY`, plus the matching SDK (`pip install anthropic` / `openai` / `google-genai`).
+Pick a backend with `--provider {anthropic,openai,gemini}` and `--model ID`, or
+let it auto-detect from whichever key is set.
 
 Pairs with [`strawman`](https://github.com/JGalego/Bag-of-Tricks/tree/main/strawman),
 its cousin: strawman red-teams a *prompt*, grill cross-examines an *answer*.

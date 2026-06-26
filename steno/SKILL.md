@@ -28,8 +28,13 @@ steno r src/app.py            # review → prints the expanded prompt
 steno t utils.py              # tests
 steno c                       # commit message from `git diff --cached`
 steno rx "match an iso date"  # free-text input instead of a file
-steno r app.py --run          # send it to Claude (needs: pip install anthropic)
+steno r app.py --run          # send it to an LLM (auto-detects the provider)
+steno r app.py --run --provider gemini   # or name a provider/--model
 ```
+
+`--run` works with any of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` /
+`GEMINI_API_KEY`, plus that provider's SDK. It auto-detects the provider from the key
+that's set; override with `--provider {anthropic,openai,gemini}` and `--model`.
 
 Otherwise run it from the bag-of-tricks repo: `python3 steno/steno.py`.
 

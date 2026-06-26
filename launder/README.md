@@ -48,6 +48,7 @@ echo "sсam" | python3 launder.py --homoglyphs   # that 'с' is Cyrillic
 | `--report`     | list findings by category (count + first offset), exit 0   |
 | `--json`       | emit a structured summary (counts + findings) as JSON       |
 | `--homoglyphs` | also normalize confusable Cyrillic/Greek look-alikes (opt-in; lossy) |
+| `--patterns FILE` | merge custom `{category: {char: replacement}}` maps from JSON (repeatable) |
 
 ### what it scrubs
 
@@ -65,6 +66,31 @@ echo "sсam" | python3 launder.py --homoglyphs   # that 'с' is Cyrillic
 Em-dash maps to `--` by default (an em-dash is two hyphens' worth of pause);
 en-dash maps to `-`. Findings carry their offsets against the original text, and
 clean ASCII round-trips byte-for-byte with an empty findings list.
+
+### custom patterns
+
+Extend the scrub table without touching the source. Pass `--patterns FILE`
+(repeatable), or set `LAUNDER_PATTERNS` to an os.pathsep-separated list of paths
+(used only when no flag is given). Each file is JSON mapping a category to a
+`char -> replacement` map:
+
+```json
+{
+  "smart_quote": {"«": "\"", "»": "\""},
+  "bullet":      {"•": "-"}
+}
+```
+
+Known categories (`smart_quote`, `em_dash`, …) get extended; brand-new
+categories like `bullet` are allowed and show up in reports/findings under that
+name. User entries override the built-ins on character collision; built-ins are
+the base.
+
+```bash
+echo "• item" | python3 launder.py --patterns my.json
+# stdout: - item
+# stderr: [launder] scrubbed 1: 1×bullet
+```
 
 ## install
 

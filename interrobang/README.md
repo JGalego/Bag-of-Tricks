@@ -57,6 +57,40 @@ question — "I'll assume…", "presumably…", "I'll go with…", "defaulting t
 
 Exits non-zero when it finds guesses, so you can gate a review step on it.
 
+#### your own guess phrases — `--patterns`
+
+The built-in regexes catch the obvious tells. Add your own with `--patterns`
+(repeatable), pointing at a JSON file shaped:
+
+```json
+{ "patterns": ["\\byolo it\\b", "\\bclose enough\\b"] }
+```
+
+Each regex is **merged into** the built-ins and compiled case-insensitively.
+
+```bash
+python3 interrobang.py check response.txt --patterns house_style.json
+```
+
+You can also set `INTERROBANG_PATTERNS` (an `os.pathsep`-separated list of JSON
+paths) as a fallback when `--patterns` isn't passed.
+
+#### semantic guesses — `--llm`
+
+Regexes only see phrases. A model sees *intent* — it catches the guesses that
+wear no tell-tale wording: silently picking a default, quietly resolving an
+ambiguity, answering a question the user never pinned down.
+
+```bash
+python3 interrobang.py check response.txt --llm
+python3 interrobang.py check response.txt --llm --provider openai --model gpt-4o-mini
+```
+
+`--llm` reads the transcript with a model (Anthropic / OpenAI / Gemini via the
+shared helper) and reports the same `‽`-flagged lines; `--provider` and
+`--model` pick the backend. Needs an API key in the environment; exits `2` if
+the provider call fails. (`--patterns` applies to the offline check only.)
+
 ## the philosophy
 
 interrobang is **not** "ask more questions." A bot that asks five questions

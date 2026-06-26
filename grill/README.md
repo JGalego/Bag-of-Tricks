@@ -23,8 +23,10 @@ It comes in two halves:
   nodding along to it — a built-in cross-examiner for any draft answer or another
   model's output.
 - **`grill.py`** — a zero-dependency CLI that prints the interrogation plan
-  offline (`--dry-run`), or runs the questions against Claude (`--run` is the
-  default when the SDK + key are present) and reports where the answer cracked.
+  offline (`--dry-run`), or runs the questions against a model (the default when
+  an API key is present) and reports where the answer cracked. It talks to
+  Anthropic, OpenAI-compatible, and Gemini backends over plain HTTP — **no
+  provider SDK to install**.
 
 ## the interrogation angles
 
@@ -45,11 +47,15 @@ echo "The feature is fully tested and bug-free." | python3 grill.py --dry-run
 python3 grill.py answer.txt --dry-run
 python3 grill.py answer.txt --question "Is this migration safe?" --dry-run
 
-# actually grill it against Claude (needs anthropic SDK + API key)
-export ANTHROPIC_API_KEY=sk-ant-...
+# actually grill it against a model (needs one API key + that provider's SDK)
+export ANTHROPIC_API_KEY=sk-ant-...   # or OPENAI_API_KEY, or GEMINI_API_KEY
 python3 grill.py answer.txt --question "Is this migration safe?"
 cat answer.txt | python3 grill.py
 python3 grill.py answer.txt --angles assumptions,sources
+
+# pick a provider / model explicitly (otherwise auto-detected from your key)
+python3 grill.py answer.txt --provider openai --model gpt-4o
+python3 grill.py answer.txt --provider gemini
 ```
 
 Each angle runs as an **independent** call (in parallel), so it's fast and one
@@ -80,7 +86,8 @@ verdict: 1/6 angles cracked it. worst: CRACKS
 | `--dry-run` | print the interrogation plan (angles + questions) without calling the API — no key, no deps |
 | `--question "..."` | give grill the original question/context the answer responds to |
 | `--angles a,b,c` | restrict to a subset of angles (default: all six) |
-| `--model ID` | model id to grill with (default: `claude-opus-4-8`) |
+| `--provider P` | `anthropic`, `openai`, or `gemini` (default: auto-detect from whichever key is set) |
+| `--model ID` | model id to grill with (default: the provider's default) |
 
 A clean grilling (everything `holds`/`weak`) exits `0`; any `shaky`/`cracks`
 exits `1`, so you can gate on it.
@@ -100,9 +107,10 @@ Or run it in place: `python3 grill.py`.
 
 ## honest notes
 
-- `--run` (the default) needs `pip install anthropic` and an `ANTHROPIC_API_KEY`.
-  Without them, grill prints the interrogation plan and tells you so — `--dry-run`
-  always works with zero dependencies and no network.
+- A real run needs an API key — any one of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+  or `GEMINI_API_KEY`, plus that provider's SDK (`pip install anthropic` / `openai` / `google-genai`). Without
+  a key, grill tells you so and points at `--dry-run`, which always works with
+  zero dependencies and no network.
 - It's a model questioning an answer — treat findings as **strong leads, not
   proofs**. A sharp follow-up is a place to look, not a final verdict.
 - grill cross-examines the *answer text*. It can't run your code, check your data,

@@ -6,7 +6,7 @@ You type the same prompts all day — "review this code", "write tests for this"
 "explain what this does". steno gives them mind-numbingly short aliases that
 expand into full, well-formed prompts with your file (or text, or `git diff`)
 spliced in. By default it just prints the prompt — pipe it anywhere — or pass
-`--run` to send it straight to Claude.
+`--run` to send it straight to an LLM (Anthropic, OpenAI-compatible, or Gemini).
 
 It's the caveman move applied to *your* side of the conversation: why type a
 whole prompt when two letters do the trick.
@@ -15,12 +15,12 @@ whole prompt when two letters do the trick.
 
 ```bash
 just install steno          # symlinks `steno` onto your PATH
-pip install anthropic       # only needed for --run
 ```
 
-[`just`](https://github.com/casey/just) ·
-[anthropic SDK](https://github.com/anthropics/anthropic-sdk-python). Or run
-`python3 steno.py` from this folder.
+[`just`](https://github.com/casey/just). Or run `python3 steno.py` from this
+folder. Expanding needs nothing but Python 3.9+; `--run` just needs one of
+`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` in the environment —
+install only the provider SDK you use (anthropic / openai / google-genai).
 
 ## usage
 
@@ -30,9 +30,14 @@ steno t utils.py              # tests
 steno e parser.py | deadpan   # compose with the rest of the bag
 steno rx "match an iso date"  # free text instead of a file
 steno c                       # commit message from `git diff --cached`
-steno r app.py --run          # actually send it to Claude
+steno r app.py --run          # actually send it to an LLM
+steno r app.py --run --provider openai --model gpt-4o   # pick a provider/model
 steno ls                      # list every alias
 ```
+
+`--run` auto-detects the provider from whichever API key is set. Override it
+with `--provider {anthropic,openai,gemini}` and/or `--model <id>`; with neither,
+the provider's default model is used.
 
 Input is resolved in this order: `--text`, then file arg(s) (contents are read
 in, with a filename header), then anything else as literal text, then piped
@@ -87,5 +92,5 @@ steno writes the prompt; the other tricks shape it:
 
 ```bash
 steno r app.py | deadpan            # terse, no-fluff review prompt
-steno e mod.py --run | deadpan      # run it, then strip the chatter
+steno e mod.py --run | deadpan      # run it (any provider), then strip the chatter
 ```

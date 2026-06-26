@@ -25,20 +25,24 @@ badly, the exact input that broke it, and how to harden it.
 
 ```bash
 just install strawman          # symlinks `strawman` onto your PATH
-pip install anthropic          # needed for a real run (not for --dry-run)
 ```
 
-[`just`](https://github.com/casey/just) ·
-[anthropic SDK](https://github.com/anthropics/anthropic-sdk-python). Or just run
-`python3 strawman.py` from this folder.
+[`just`](https://github.com/casey/just). No provider SDK to install — strawman
+talks to Anthropic, OpenAI-compatible, and Gemini backends over plain HTTP. Or
+just run `python3 strawman.py` from this folder.
 
 ## usage
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+# a real run needs one API key + that provider's SDK:
+export ANTHROPIC_API_KEY=sk-ant-...               # or OPENAI_API_KEY, or GEMINI_API_KEY
 python3 strawman.py my_system_prompt.txt          # full battery
 cat prompt.txt | python3 strawman.py              # from stdin
 python3 strawman.py prompt.txt --attacks jailbreak,injection
+
+# pick a provider / model explicitly (otherwise auto-detected from your key)
+python3 strawman.py prompt.txt --provider openai --model gpt-4o
+python3 strawman.py prompt.txt --provider gemini
 
 # see the attacks without spending a token (no key required)
 python3 strawman.py prompt.txt --dry-run
@@ -88,5 +92,7 @@ Claude Code can run a pre-ship red-team when you ask it to harden a prompt.
   The `fix` suggestions are starting points; read them, don't paste them blind.
 - It red-teams the *prompt text*. It can't see your tools' actual behavior, your
   output filters, or your app's guardrails — those may already cover a finding.
-- Uses `claude-opus-4-8` with adaptive thinking. Costs a handful of calls per
-  run (one per lens). `--dry-run` costs nothing.
+- Works with Anthropic, OpenAI-compatible, or Gemini — set any one of
+  `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`, plus the matching SDK, and
+  pick a backend with `--provider` / `--model` or let it auto-detect. Each lens
+  is one call; a run costs a handful. `--dry-run` costs nothing.

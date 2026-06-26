@@ -59,3 +59,9 @@ line; never echo a full secret. No preamble, no closing summary.
 through it to redact secrets (`frisk.py`), add free-form PII for customer/user
 data (`frisk.py --pii`), gate a pipeline (`frisk.py --check`, exits 1 on a hit),
 or list findings with masked previews (`frisk.py --report`).
+
+Extend the detectors and PII field-names with `--patterns FILE` (repeatable; or
+the `FRISK_PATTERNS` env var). The file is JSON of shape
+`{"detectors": {"<name>": "<regex>"}, "pii_keys": {"<fieldname>": "<label>"}}`.
+Custom detectors run by default like the built-ins; custom `pii_keys` are
+redacted under `--pii`. User entries extend/override the built-ins by key.

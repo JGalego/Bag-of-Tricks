@@ -20,17 +20,21 @@ before shipping a system prompt, not after a user finds the hole.
 
 ## How to run it
 
-Needs `ANTHROPIC_API_KEY` and the `anthropic` SDK (`pip install anthropic`).
+A real run needs just one API key — any of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+or `GEMINI_API_KEY`, plus that provider's SDK (`pip install anthropic` / `openai` / `google-genai`).
 If installed on the `PATH` (via `just install strawman`):
 
 ```bash
 strawman my_system_prompt.txt              # full battery
 strawman prompt.txt --attacks jailbreak,injection
+strawman prompt.txt --provider openai --model gpt-4o   # else auto-detect from key
 cat prompt.txt | strawman                  # from stdin
 strawman prompt.txt --dry-run              # show the attacks, no API call / key
 ```
 
-Otherwise run it from the bag-of-tricks repo: `python3 strawman/strawman.py`.
+Pick a backend with `--provider {anthropic,openai,gemini}` and `--model ID`, or
+let it auto-detect from whichever key is set. Otherwise run it from the
+bag-of-tricks repo: `python3 strawman/strawman.py`.
 
 ## Reading the result
 

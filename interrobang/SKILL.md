@@ -63,3 +63,10 @@ meta-commentary about the skill itself.
 `interrobang.py check` lints a response for assumption phrases ("I'll assume…",
 "presumably…") — the linguistic fingerprint of a guess that should have been a
 question.
+
+- `--patterns FILE` (repeatable) merges your own regexes into the built-ins.
+  FILE is JSON: `{"patterns": ["<regex>", ...]}`, compiled case-insensitively.
+  The env var `INTERROBANG_PATTERNS` (os.pathsep-separated paths) is a fallback.
+- `--llm` reads the transcript with a model instead of regex, catching semantic
+  guesses the patterns miss (silently picking a default, quietly resolving an
+  ambiguity). `--provider` / `--model` pick the backend; exits `2` on failure.

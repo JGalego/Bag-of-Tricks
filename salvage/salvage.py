@@ -10,12 +10,30 @@ in chatty LLM output, repairs the usual damage, and emits clean JSON.
     -> {"ok": true}  (pretty-printed)
 
     salvage.py --compact reply.txt
+
+## Custom patterns
+
+Extend the built-in repair tables with your own JSON file via `--patterns
+FILE` (repeatable) or the `SALVAGE_PATTERNS` env var (os.pathsep-separated
+paths, used when the flag is absent). User entries MERGE into the built-ins
+and override on key collision; built-ins remain the base. Shape::
+
+    {
+      "smart_quotes": {"«": "\\"", "»": "\\""},
+      "py_literals": {"Nil": "null", "TRUE": "true"}
+    }
+
+`smart_quotes` maps any character to its replacement (run before parsing, so
+it can fix string boundaries). `py_literals` maps a bare token (matched
+outside strings, as a whole word) to its JSON value; the literal regex is
+rebuilt from the merged keys so new tokens like `Nil` are recognized.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 
@@ -92,6 +110,42 @@ _PY_LITERAL = re.compile(r"\b(True|False|None)\b")
 _PY_MAP = {"True": "true", "False": "false", "None": "null"}
 
 
+def _load_patterns(paths: list[str]) -> dict:
+    """Read pattern JSON files and merge them into one config dict.
+
+    Each file may carry `smart_quotes` and/or `py_literals` objects. Later
+    files win on key collision. The result is suitable as the `extra` argument
+    to `salvage` / `_repair`.
+    """
+    merged: dict = {"smart_quotes": {}, "py_literals": {}}
+    for path in paths:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        for section in ("smart_quotes", "py_literals"):
+            entries = data.get(section)
+            if entries:
+                merged[section].update(entries)
+    return merged
+
+
+def _merge_config(extra: dict | None) -> tuple[dict, dict, re.Pattern]:
+    """Combine the built-in tables with `extra` and rebuild the literal regex.
+
+    Returns (smart_quotes, py_map, py_literal_regex). With no extra, returns
+    the built-ins unchanged so default behavior is identical.
+    """
+    if not extra or not (extra.get("smart_quotes") or extra.get("py_literals")):
+        return _SMART_QUOTES, _PY_MAP, _PY_LITERAL
+
+    smart = {**_SMART_QUOTES, **extra.get("smart_quotes", {})}
+    py_map = {**_PY_MAP, **extra.get("py_literals", {})}
+    # Rebuild the alternation from the merged keys (longest first so a token
+    # that is a prefix of another doesn't shadow it).
+    alternation = "|".join(re.escape(k) for k in sorted(py_map, key=len, reverse=True))
+    py_literal = re.compile(rf"\b({alternation})\b")
+    return smart, py_map, py_literal
+
+
 def _apply_outside_strings(text: str, fn) -> str:
     """Run `fn` on the non-string spans of `text`, leaving string literals alone."""
     out = []
@@ -121,16 +175,22 @@ def _apply_outside_strings(text: str, fn) -> str:
     return "".join(out)
 
 
-def _repair(text: str) -> str:
-    """Clean common LLM JSON damage before json.loads."""
+def _repair(text: str, extra: dict | None = None) -> str:
+    """Clean common LLM JSON damage before json.loads.
+
+    `extra` may carry custom `smart_quotes` / `py_literals` tables that merge
+    into the built-ins (see `_load_patterns`).
+    """
+    smart_quotes, py_map, py_literal = _merge_config(extra)
+
     # Smart quotes -> straight quotes (do this first; affects string boundaries).
-    for smart, straight in _SMART_QUOTES.items():
+    for smart, straight in smart_quotes.items():
         text = text.replace(smart, straight)
 
     def scrub(span: str) -> str:
         span = _BLOCK_COMMENT.sub("", span)
         span = _LINE_COMMENT.sub("", span)
-        span = _PY_LITERAL.sub(lambda m: _PY_MAP[m.group(1)], span)
+        span = py_literal.sub(lambda m: py_map[m.group(1)], span)
         return span
 
     text = _apply_outside_strings(text, scrub)
@@ -140,13 +200,14 @@ def _repair(text: str) -> str:
     return text
 
 
-def salvage(text: str, indent: int | None = 2) -> str:
+def salvage(text: str, indent: int | None = 2, extra: dict | None = None) -> str:
     """Extract, repair, and re-serialize the first JSON value in `text`.
 
+    `extra` optionally extends the built-in repair tables (see `_load_patterns`).
     Raises ValueError("no salvageable JSON") if no valid JSON can be recovered.
     """
     candidate = find_json(text)
-    repaired = _repair(candidate)
+    repaired = _repair(candidate, extra=extra)
     try:
         value = json.loads(repaired)
     except (ValueError, json.JSONDecodeError) as exc:
@@ -176,7 +237,25 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="locate the JSON substring but do NOT repair or reformat it",
     )
+    p.add_argument(
+        "--patterns",
+        action="append",
+        metavar="FILE",
+        help="JSON file of custom smart_quotes/py_literals to merge in "
+        "(repeatable; falls back to $SALVAGE_PATTERNS)",
+    )
     args = p.parse_args(argv)
+
+    pattern_paths = args.patterns
+    if not pattern_paths:
+        env = os.environ.get("SALVAGE_PATTERNS")
+        pattern_paths = env.split(os.pathsep) if env else []
+
+    try:
+        extra = _load_patterns([p for p in pattern_paths if p]) if pattern_paths else None
+    except (OSError, ValueError) as exc:
+        sys.stderr.write(f"[salvage] could not load patterns: {exc}\n")
+        return 1
 
     if args.files:
         raw = "".join(open(f, encoding="utf-8").read() for f in args.files)
@@ -189,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.extract_only:
             out = find_json(raw)
         else:
-            out = salvage(raw, indent=indent)
+            out = salvage(raw, indent=indent, extra=extra)
     except ValueError as exc:
         sys.stderr.write(f"[salvage] {exc}\n")
         return 1

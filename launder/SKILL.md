@@ -69,3 +69,10 @@ exits 1 if any fingerprint is present), list what it found by category
 (`launder.py --report`), or get a structured summary (`launder.py --json`).
 Add `--homoglyphs` to also normalize confusables. It pairs with **`tell`**:
 `tell` diagnoses the AI prose, launder washes the AI typography.
+
+Extend the scrub table with `--patterns FILE` (repeatable; or the
+`LAUNDER_PATTERNS` env var). The file is JSON of shape
+`{"<category>": {"<char>": "<replacement>"}}`, e.g.
+`{"smart_quote": {"«": "\""}, "bullet": {"•": "-"}}`. Known categories extend
+the built-ins, new categories are allowed and reported under their own name, and
+user entries override the built-ins on character collision.

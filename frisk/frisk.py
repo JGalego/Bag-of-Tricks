@@ -12,12 +12,34 @@ the full secret back at you.
 
     cat prompt.txt | frisk.py --check    # exit 1 if anything leaks
     frisk.py --report < context.md       # list findings, masked previews
+
+Custom patterns
+---------------
+Extend the built-in tables without editing the source. Pass one or more
+``--patterns FILE`` flags (repeatable), or set ``FRISK_PATTERNS`` to an
+os.pathsep-separated list of paths (used only when no flag is given). Each file
+is JSON of the shape::
+
+    {
+      "detectors": {"<name>": "<regex>"},
+      "pii_keys":  {"<fieldname>": "<label>"}
+    }
+
+``detectors`` entries are compiled and merged into the built-ins; new detectors
+run by default like the built-ins (only the existing ``ipv4`` stays opt-in).
+``pii_keys`` entries are normalized (lowercased, non-alphanumerics stripped) and
+merged into the field-name table used by ``--pii``. User entries override
+built-ins on key collision. Example::
+
+    {"detectors": {"acme_key": "ACME-[0-9]{10}"},
+     "pii_keys":  {"employeeId": "employee_id"}}
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 
@@ -135,6 +157,36 @@ def _norm_key(key: str) -> str:
     return re.sub(r"[^a-z0-9]", "", key.lower())
 
 
+# Env var carrying os.pathsep-separated pattern files when --patterns is absent.
+_ENV_VAR = "FRISK_PATTERNS"
+
+
+def _load_patterns(
+    paths: list[str] | None,
+) -> tuple[dict[str, re.Pattern[str]], dict[str, str]]:
+    """Load + merge custom detectors / pii_keys from JSON files onto the built-ins.
+
+    Returns ``(detectors, pii_keys)`` — copies of the built-in tables with any
+    user entries merged in (user wins on key collision). When ``paths`` is None,
+    the ``FRISK_PATTERNS`` env var (os.pathsep-separated) is consulted instead.
+    """
+    detectors = dict(_DETECTORS)
+    pii_keys = dict(_PII_KEYS)
+
+    if paths is None:
+        env = os.environ.get(_ENV_VAR, "")
+        paths = [p for p in env.split(os.pathsep) if p] if env else []
+
+    for path in paths:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        for name, pat in (data.get("detectors") or {}).items():
+            detectors[name] = re.compile(pat)
+        for key, label in (data.get("pii_keys") or {}).items():
+            pii_keys[_norm_key(key)] = label
+    return detectors, pii_keys
+
+
 def _luhn_ok(text: str) -> bool:
     """True if the digits in ``text`` pass the Luhn checksum (13-19 long)."""
     digits = [int(c) for c in text if c.isdigit()]
@@ -150,12 +202,15 @@ def _luhn_ok(text: str) -> bool:
     return total % 10 == 0
 
 
-def _pii_spans(text: str) -> list[tuple[int, int, str, str]]:
+def _pii_spans(
+    text: str, pii_keys: dict[str, str] | None = None
+) -> list[tuple[int, int, str, str]]:
     """Spans for the *values* of PII-signalling keys (JSON + key:value lines)."""
+    keys = _PII_KEYS if pii_keys is None else pii_keys
     spans: list[tuple[int, int, str, str]] = []
     for pat in (_PII_JSON, _PII_LINE):
         for m in pat.finditer(text):
-            label = _PII_KEYS.get(_norm_key(m.group("key")))
+            label = keys.get(_norm_key(m.group("key")))
             val = m.group("val")
             if label and val.strip():
                 spans.append((m.start("val"), m.end("val"), label, val))
@@ -173,7 +228,13 @@ def _mask(match: str) -> str:
     return f"{head}…" if len(match) > _PREVIEW else "…"
 
 
-def frisk(text: str, types: set[str] | None = None, pii: bool = False) -> tuple[str, list[dict]]:
+def frisk(
+    text: str,
+    types: set[str] | None = None,
+    pii: bool = False,
+    detectors: dict[str, re.Pattern[str]] | None = None,
+    pii_keys: dict[str, str] | None = None,
+) -> tuple[str, list[dict]]:
     """Pat ``text`` down for secrets/PII.
 
     Returns ``(redacted_text, findings)`` where each finding is
@@ -182,17 +243,24 @@ def frisk(text: str, types: set[str] | None = None, pii: bool = False) -> tuple[
     ``pii=True`` additionally redacts free-form values (names, addresses, dates
     of birth, …) keyed off their field names — see ``_PII_KEYS``.
 
+    ``detectors`` / ``pii_keys`` optionally supply merged tables (built-ins plus
+    user patterns from ``_load_patterns``); default to the built-ins. Custom
+    detectors run by default like the built-ins; only the existing ``ipv4``
+    stays opt-in.
+
     Overlapping matches are resolved left-to-right, longest-first, so offsets
     stay sane and the rebuilt text never gets corrupted.
     """
-    active = _DEFAULT_TYPES if types is None else (set(types) & set(_DETECTORS))
+    det = _DETECTORS if detectors is None else detectors
+    default_types = frozenset(det) - {"ipv4"}
+    active = default_types if types is None else (set(types) & set(det))
 
     # Collect every span from every active detector.
     spans: list[tuple[int, int, str, str]] = []
-    for name in _DETECTORS:
+    for name in det:
         if name not in active:
             continue
-        for m in _DETECTORS[name].finditer(text):
+        for m in det[name].finditer(text):
             # Credit-card shape is noisy; keep only Luhn-valid runs.
             if name == "credit_card" and not _luhn_ok(m.group(0)):
                 continue
@@ -200,7 +268,7 @@ def frisk(text: str, types: set[str] | None = None, pii: bool = False) -> tuple[
 
     # Free-form PII keyed off field names (opt-in).
     if pii:
-        spans.extend(_pii_spans(text))
+        spans.extend(_pii_spans(text, pii_keys))
 
     # Sort by start, then by longest match first so we keep the widest span
     # when two detectors fire on the same region.
@@ -272,7 +340,22 @@ def main(argv: list[str] | None = None) -> int:
         default="[REDACTED:{type}]",
         help="redaction tag format, e.g. '[REDACTED:{type}]' (default)",
     )
+    p.add_argument(
+        "--patterns",
+        metavar="FILE",
+        action="append",
+        help="JSON file of custom detectors/pii_keys to merge in (repeatable; "
+        "falls back to $FRISK_PATTERNS when absent)",
+    )
     args = p.parse_args(argv)
+
+    # Merge custom patterns (built-ins are the base; user entries extend/override).
+    try:
+        detectors, pii_keys = _load_patterns(args.patterns)
+    except (OSError, ValueError) as e:
+        sys.stderr.write(f"[frisk] could not load patterns: {e}\n")
+        return 2
+    default_types = frozenset(detectors) - {"ipv4"}
 
     if args.files:
         raw = "".join(open(f, encoding="utf-8").read() for f in args.files)
@@ -282,20 +365,20 @@ def main(argv: list[str] | None = None) -> int:
     # Resolve which detectors run.
     if args.only:
         wanted = {t.strip() for t in args.only.split(",") if t.strip()}
-        unknown = wanted - set(_DETECTORS)
+        unknown = wanted - set(detectors)
         if unknown:
             sys.stderr.write(
                 f"[frisk] unknown detector(s): {', '.join(sorted(unknown))}\n"
-                f"[frisk] known: {', '.join(sorted(_DETECTORS))}\n"
+                f"[frisk] known: {', '.join(sorted(detectors))}\n"
             )
             return 2
         types: set[str] | None = wanted
     else:
-        types = set(_DEFAULT_TYPES)
+        types = set(default_types)
         if args.ip:
             types.add("ipv4")
 
-    redacted, findings = frisk(raw, types, pii=args.pii)
+    redacted, findings = frisk(raw, types, pii=args.pii, detectors=detectors, pii_keys=pii_keys)
 
     # Custom tag format: rebuild from the (already correct) spans.
     if args.tag != "[REDACTED:{type}]":

@@ -51,3 +51,10 @@ nothing else. No "here's the cleaned version," no closing note.
 
 `deadpan.py` in this folder applies these rules mechanically to existing text
 (yours or another model's) as a post-filter — pipe any output through it.
+
+Extend the strip lists with `--patterns FILE` (repeatable; or the
+`DEADPAN_PATTERNS` env var). The file is JSON of shape
+`{"openers": [...], "signoffs": [...], "hedges": [...], "self": [...]}` where each
+value is a list of regexes appended to the matching built-in list. Openers
+anchor to the start, sign-offs to the end of a sentence, hedges/self strip
+inline — same handling as the built-ins.

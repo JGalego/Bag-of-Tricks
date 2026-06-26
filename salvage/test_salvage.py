@@ -101,3 +101,74 @@ def test_cli_returns_0_on_good_file(tmp_path):
     good = tmp_path / "good.txt"
     good.write_text('blah {"x": 1,} blah', encoding="utf-8")
     assert main([str(good), "--compact"]) == 0
+
+
+# --- custom patterns ------------------------------------------------------
+
+
+def test_custom_smart_quote_pair_makes_invalid_json_parse():
+    # «» are not built-in smart quotes; without the custom pair this would fail.
+    extra = {"smart_quotes": {"«": '"', "»": '"'}}
+    src = "{«key»: «value»}"
+    assert salvage(src, indent=None, extra=extra) == '{"key":"value"}'
+
+
+def test_custom_py_literal_converted():
+    extra = {"py_literals": {"Nil": "null"}}
+    out = salvage('{"a": Nil}', indent=None, extra=extra)
+    assert out == '{"a":null}'
+
+
+def test_custom_py_literal_does_not_touch_strings():
+    extra = {"py_literals": {"Nil": "null"}}
+    out = salvage('{"a": Nil, "b": "Nil"}', indent=None, extra=extra)
+    assert out == '{"a":null,"b":"Nil"}'
+
+
+def test_builtins_still_work_with_custom_patterns():
+    # Built-in True/False/None still convert when extra is supplied.
+    extra = {"py_literals": {"Nil": "null"}}
+    out = salvage('{"a": True, "b": Nil, "c": None}', indent=None, extra=extra)
+    assert out == '{"a":true,"b":null,"c":null}'
+
+
+def test_default_behavior_unchanged_without_patterns():
+    # «» stay as-is (invalid) -> unsalvageable when no custom patterns given.
+    with pytest.raises(ValueError, match="no salvageable JSON"):
+        salvage("{«key»: «value»}")
+
+
+def test_load_patterns_merges_files(tmp_path):
+    from salvage import _load_patterns
+
+    f1 = tmp_path / "a.json"
+    f1.write_text('{"smart_quotes": {"«": "\\""}}', encoding="utf-8")
+    f2 = tmp_path / "b.json"
+    f2.write_text('{"py_literals": {"Nil": "null"}}', encoding="utf-8")
+    merged = _load_patterns([str(f1), str(f2)])
+    assert merged["smart_quotes"] == {"«": '"'}
+    assert merged["py_literals"] == {"Nil": "null"}
+
+
+def test_cli_patterns_flag(tmp_path):
+    from salvage import main
+
+    pats = tmp_path / "pats.json"
+    pats.write_text('{"py_literals": {"Nil": "null"}}', encoding="utf-8")
+    data = tmp_path / "data.txt"
+    data.write_text('{"a": Nil}', encoding="utf-8")
+    assert main(["--patterns", str(pats), "--compact", str(data)]) == 0
+
+
+def test_cli_patterns_env(tmp_path, monkeypatch, capsys):
+    from salvage import main
+
+    pats = tmp_path / "pats.json"
+    pats.write_text('{"py_literals": {"Nil": "null"}}', encoding="utf-8")
+    data = tmp_path / "data.txt"
+    data.write_text('{"a": Nil}', encoding="utf-8")
+    monkeypatch.setenv("SALVAGE_PATTERNS", str(pats))
+    rc = main(["--compact", str(data)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert out.strip() == '{"a":null}'

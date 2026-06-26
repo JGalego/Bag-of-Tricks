@@ -70,3 +70,16 @@ exits 1 on a hit), list findings with clipped previews (`mole.py --report`), emi
 structured findings (`mole.py --json`), or — belt and suspenders — wrap the whole
 input in a delimited untrusted block (`mole.py --quarantine`). `--tag FMT` sets a
 custom tag and `--only t1,t2` restricts which detectors run.
+
+When the plant is hiding rather than shouting, reach for the extra modes:
+
+- `--normalize` strips zero-width characters and folds common Cyrillic/Greek
+  homoglyphs back to ASCII *before* sweeping, so `іgnоrе` (look-alike letters) is
+  caught like `ignore`. Off by default; with it on, offsets refer to the
+  normalized text.
+- `--patterns FILE` (repeatable; env `MOLE_PATTERNS` as fallback) merges your own
+  detectors from JSON `{"detectors": {"<name>": "<regex>"}}` into the built-ins —
+  user entries override built-ins by name, compiled case-insensitively.
+- `--llm` (with `--provider` / `--model`) hands the text to a model to catch
+  paraphrased, translated, or obfuscated injections the regexes miss, tagging the
+  same `[MOLE:*]` categories plus `obfuscation`.

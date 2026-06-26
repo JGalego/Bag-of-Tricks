@@ -4,7 +4,7 @@ Fully offline: the network checker is stubbed everywhere via the injectable
 `_checker` parameter, so no test ever opens a socket.
 """
 
-from bluff import check_all, extract_urls, main
+from bluff import check_all, extract_citations, extract_urls, main
 
 
 def test_extracts_bare_url():
@@ -94,3 +94,69 @@ def test_main_dry_run_exit_zero(tmp_path, capsys):
     assert rc == 0
     assert "https://example.com" in out
     assert "https://example.org" in out
+
+
+# --- custom patterns ------------------------------------------------------
+
+
+def test_custom_url_pattern_surfaces_missed_link():
+    # ftp:// is not matched by the built-in http(s) regexes.
+    extra = {"url_patterns": [r"ftp://\S+"]}
+    assert extract_urls("grab ftp://files.example/x", extra=extra) == ["ftp://files.example/x"]
+
+
+def test_custom_url_pattern_with_capture_group():
+    extra = {"url_patterns": [r"<(https?://[^>]+)>"]}
+    assert extract_urls("see <https://example.com> here", extra=extra) == ["https://example.com"]
+
+
+def test_custom_citation_pattern_surfaces_doi():
+    extra = {"citation_patterns": [r"10\.\d{4,}/\S+"]}
+    assert extract_citations("per doi 10.1000/xyz here", extra=extra) == ["10.1000/xyz"]
+
+
+def test_no_citations_without_patterns():
+    assert extract_citations("doi 10.1000/xyz", extra=None) == []
+
+
+def test_default_url_extraction_unchanged_with_empty_extra():
+    text = "first [a](https://a.example) then https://b.example done"
+    assert extract_urls(text, extra={}) == ["https://a.example", "https://b.example"]
+
+
+def test_main_dry_run_lists_custom_url_and_citation(tmp_path, capsys):
+    pats = tmp_path / "pats.json"
+    pats.write_text(
+        '{"url_patterns": ["ftp://\\\\S+"], "citation_patterns": ["10\\\\.\\\\d{4,}/\\\\S+"]}'
+    )
+    f = tmp_path / "answer.md"
+    f.write_text("grab ftp://files.example/x and cite 10.1000/xyz")
+    rc = main(["--dry-run", "--patterns", str(pats), str(f)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "ftp://files.example/x" in out
+    assert "10.1000/xyz" in out
+
+
+def test_main_patterns_env(tmp_path, monkeypatch, capsys):
+    pats = tmp_path / "pats.json"
+    pats.write_text('{"citation_patterns": ["10\\\\.\\\\d{4,}/\\\\S+"]}')
+    f = tmp_path / "answer.md"
+    f.write_text("cite 10.1000/xyz")
+    monkeypatch.setenv("BLUFF_PATTERNS", str(pats))
+    rc = main(["--dry-run", str(f)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "10.1000/xyz" in out
+
+
+def test_load_patterns_merges_files(tmp_path):
+    from bluff import _load_patterns
+
+    f1 = tmp_path / "a.json"
+    f1.write_text('{"url_patterns": ["ftp://\\\\S+"]}')
+    f2 = tmp_path / "b.json"
+    f2.write_text('{"citation_patterns": ["10\\\\.\\\\d{4,}/\\\\S+"]}')
+    merged = _load_patterns([str(f1), str(f2)])
+    assert merged["url_patterns"] == [r"ftp://\S+"]
+    assert merged["citation_patterns"] == [r"10\.\d{4,}/\S+"]

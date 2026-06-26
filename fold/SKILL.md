@@ -66,6 +66,17 @@ gate an overclaim check (`fold.py --check`, exits 1 on a hit), list the tells
 with offsets (`fold.py --report`), or get a quick confidence-inflation gauge
 (`fold.py --score`).
 
+Two ways to go beyond the built-in regexes:
+
+- **`fold.py --llm`** asks a model to judge confidence *against the evidence* —
+  it catches a bluff that uses no tell-word at all, and leaves genuinely-backed
+  or hedged prose alone. Pick the backend with `--provider`/`--model` (Anthropic
+  / OpenAI-compatible / Gemini). Still tone, not truth.
+- **`fold.py --patterns FILE`** (repeatable, offline only) merges your own
+  detectors onto the built-ins from JSON `{"detectors": {"<type>": "<regex>"}}`;
+  same-named entries override a built-in. `$FOLD_PATTERNS` is an `os.pathsep`
+  fallback.
+
 Pairs directly with [`bluff`](../bluff), its counterpart: `fold` catches the
 overconfident *phrasing*, `bluff` checks whether the *links and citations* you
 cited so confidently actually resolve. Relatives: [`tell`](../tell) flags

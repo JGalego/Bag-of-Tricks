@@ -37,8 +37,8 @@ suspect*.
 
 ## What mugshot is NOT
 
-- It is **not** forensic proof. It's a parlor trick — a hunch dressed up as a
-  line-up, not a chain of custody.
+- It is **not** forensic proof. Even with a model in the loop it's a hunch
+  dressed up as a line-up, not a chain of custody.
 - It is **not** court-admissible. No watermark, no logprobs, no ground truth —
   just style.
 - Models **drift and mimic each other.** Today's gpt-ish phrasing is tomorrow's
@@ -66,9 +66,23 @@ preamble, no extra closing.
 
 ## Companion tool
 
-`mugshot.py` in this folder runs the line-up mechanically: pipe text in for a
-readable verdict (`mugshot.py`), every matched print with offsets
-(`mugshot.py --report`), the full ranked scoreboard (`mugshot.py --all`), or the
-structured dict (`mugshot.py --json`). It pairs with **tell**: `tell` finds the
-prints (how AI does this read?), mugshot names the suspect (*whose* prints are
-these?).
+`mugshot.py` in this folder runs the line-up. By **default** it asks a real model
+(an LLM authorship/stylometry pass) when a provider key is configured, and falls
+back to the **offline regex heuristic** otherwise — printing a note that setting
+an API key (or `--llm`) unlocks real attribution. Force the path you want:
+
+- `mugshot.py --llm` — force the model-backed pass (fails loudly, exit 2, on a
+  provider error; no silent fallback). `--provider` / `--model` pick the backend.
+- `mugshot.py --parlor` — force the offline regex heuristic, no network.
+
+Every output mode reads the same verdict dict (`{verdict, confidence, scores,
+prints}`) and works for both paths: readable verdict (`mugshot.py`), every
+matched print with offsets (`mugshot.py --report`), the full ranked scoreboard
+(`mugshot.py --all`), or the structured dict (`mugshot.py --json`).
+
+The parlor lineup is extensible: merge custom prints with `--patterns FILE`
+(repeatable) or the `MUGSHOT_PATTERNS` env var (os-path-separator-joined paths),
+each a JSON `{"suspects": {"<name>": [[weight, "label", "regex"], ...]}}`.
+
+It pairs with **tell**: `tell` finds the prints (how AI does this read?), mugshot
+names the suspect (*whose* prints are these?).

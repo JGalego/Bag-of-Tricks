@@ -1,6 +1,9 @@
 """Tests for tell. Run: pytest (from repo root) or pytest tell/"""
 
-from tell import main, tell
+import json
+
+import tell as tell_mod
+from tell import main, tell, tell_llm
 
 
 def test_stuffed_passage_scores_high():
@@ -71,10 +74,111 @@ def test_score_flag_only_prints_int(capsys, tmp_path):
 
 
 def test_json_flag(capsys, tmp_path):
-    import json
-
     f = tmp_path / "x.md"
     f.write_text("delve into the realm", encoding="utf-8")
     assert main(["--json", str(f)]) == 0
     data = json.loads(capsys.readouterr().out)
     assert {"score", "hits", "total"} <= set(data)
+
+
+# --- model-backed (--llm) mode: stub the network seam, never call out --------
+
+
+def _stub_complete(monkeypatch, payload):
+    def fake_complete(prompt, **kwargs):
+        return payload
+
+    monkeypatch.setattr(tell_mod, "llm_complete", fake_complete)
+
+
+def test_llm_mode_returns_tell_shape(monkeypatch):
+    _stub_complete(
+        monkeypatch,
+        {
+            "score": 88,
+            "hits": [
+                {"category": "overused word", "tell": "delve", "count": 2},
+                {"category": "structural", "tell": "rule-of-three list", "count": 1},
+            ],
+        },
+    )
+    result = tell_llm("some passage")
+    assert {"score", "hits", "total"} <= set(result)
+    assert result["score"] == 88
+    # total summed on our side when the model omits it.
+    assert result["total"] == 3
+    assert set(result["hits"][0]) == {"category", "tell", "count"}
+
+
+def test_llm_mode_clamps_and_defaults(monkeypatch):
+    _stub_complete(monkeypatch, {"score": 250, "hits": []})
+    result = tell_llm("x")
+    assert result["score"] == 100
+    assert result["total"] == 0
+
+
+def test_main_llm_flag_routes_to_model(monkeypatch, tmp_path, capsys):
+    _stub_complete(monkeypatch, {"score": 90, "hits": []})
+    f = tmp_path / "draft.md"
+    f.write_text("a paraphrased blob of slop\n", encoding="utf-8")
+    assert main(["--llm", "--score", str(f)]) == 0
+    assert capsys.readouterr().out.strip() == "90"
+    # --max still gates off the model's score.
+    assert main(["--llm", "--max", "30", str(f)]) == 1
+
+
+def test_main_llm_failure_returns_2(monkeypatch, tmp_path):
+    def boom(*a, **k):
+        raise tell_mod.LLMError("no key")
+
+    monkeypatch.setattr(tell_mod, "llm_complete", boom)
+    f = tmp_path / "draft.md"
+    f.write_text("text\n", encoding="utf-8")
+    assert main(["--llm", str(f)]) == 2
+
+
+# --- custom patterns: extend the offline lexicon -----------------------------
+
+
+def _restore_lexicon(monkeypatch):
+    """Snapshot and restore the module-level lexicon so merges don't leak."""
+    monkeypatch.setattr(tell_mod, "OVERUSED_WORDS", list(tell_mod.OVERUSED_WORDS))
+    monkeypatch.setattr(tell_mod, "CLICHE_PHRASES", list(tell_mod.CLICHE_PHRASES))
+
+
+def test_custom_patterns_add_word_and_phrase(monkeypatch, tmp_path, capsys):
+    _restore_lexicon(monkeypatch)
+    pat = tmp_path / "extra.json"
+    pat.write_text(
+        json.dumps(
+            {
+                "words": ["synergize"],
+                "phrases": [["circle back", r"\bcircle back\b"]],
+            }
+        ),
+        encoding="utf-8",
+    )
+    draft = tmp_path / "draft.md"
+    draft.write_text("Let us synergize and then circle back later.\n", encoding="utf-8")
+
+    # Without patterns these are not built-in tells.
+    assert "synergize" not in {h["tell"] for h in tell(draft.read_text(encoding="utf-8"))["hits"]}
+
+    assert main(["--json", "--patterns", str(pat), str(draft)]) == 0
+    data = json.loads(capsys.readouterr().out)
+    labels = {h["tell"] for h in data["hits"]}
+    assert "synergize" in labels
+    assert "circle back" in labels
+
+
+def test_custom_patterns_env_var_fallback(monkeypatch, tmp_path, capsys):
+    _restore_lexicon(monkeypatch)
+    pat = tmp_path / "extra.json"
+    pat.write_text(json.dumps({"words": ["thought leader"]}), encoding="utf-8")
+    draft = tmp_path / "draft.md"
+    draft.write_text("He is a thought leader.\n", encoding="utf-8")
+    monkeypatch.setenv("TELL_PATTERNS", str(pat))
+
+    assert main(["--json", str(draft)]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert "thought leader" in {h["tell"] for h in data["hits"]}

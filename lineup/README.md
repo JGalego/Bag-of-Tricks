@@ -15,14 +15,16 @@ It comes in two halves:
   keep every answer labeled, and read the disagreement instead of averaging it
   away.
 - **`lineup.py`** — a CLI that sends one prompt to a list of models in parallel
-  and prints each response under its model id (with token counts when handy).
-  `--dry-run` shows the plan with zero dependencies and no network; a real run
-  needs the `anthropic` SDK and a key.
+  and prints each response under its model id. The lineup is **multi-provider**:
+  each model id routes to the right backend by its prefix (`claude*` → Anthropic,
+  `gpt*`/`o1*`/`o3*`/`chatgpt*` → OpenAI, `gemini*` → Gemini), or you can be
+  explicit with a `provider:model` id. `--dry-run` shows the plan with zero
+  dependencies and no network; a real run just needs the matching API key.
 
 ## usage
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export ANTHROPIC_API_KEY=sk-ant-...   # and/or OPENAI_API_KEY / GEMINI_API_KEY
 
 # the default lineup: opus + sonnet + haiku
 python3 lineup.py --prompt "Explain TCP in one sentence."
@@ -31,8 +33,14 @@ python3 lineup.py --prompt "Explain TCP in one sentence."
 python3 lineup.py prompt.txt
 cat prompt.txt | python3 lineup.py
 
-# pick your own lineup
-python3 lineup.py --prompt "..." --models claude-opus-4-8,claude-haiku-4-5
+# a cross-provider lineup — ids route by prefix
+python3 lineup.py --prompt "..." --models claude-opus-4-8,gpt-4o,gemini-2.5-flash
+
+# be explicit with provider:model ids
+python3 lineup.py --prompt "..." --models "openai:gpt-4o,anthropic:claude-haiku-4-5"
+
+# pin a default provider for ids that don't name one
+python3 lineup.py --prompt "..." --models my-model --provider openai
 
 # ask a model to pick the winner and say why
 python3 lineup.py --prompt "..." --judge claude-opus-4-8
@@ -52,36 +60,43 @@ rest still show — the lineup goes on.
 | *(default)*      | run the prompt across the default lineup, print answers labeled |
 | `--prompt TEXT`  | the prompt to put in front of the lineup                        |
 | `file` (arg)     | read the prompt from a file (default: `--prompt` or stdin)      |
-| `--models a,b,c` | comma-separated model ids to put in the lineup                  |
+| `--models a,b,c` | comma-separated model ids (mix providers; `provider:model` ok) |
 | `--judge MODEL`  | after collecting answers, ask this model to pick the best + why |
+| `--provider P`   | default provider for ids that don't name one (else auto-detect) |
 | `--dry-run`      | print the lineup plan without calling the API (no key, no deps) |
 
 The default lineup is an opus + a sonnet + a haiku tier
 (`claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`).
 
+Each id routes to a provider by its prefix (`claude*`/`anthropic*` → Anthropic,
+`gpt*`/`o1*`/`o3*`/`chatgpt*` → OpenAI, `gemini*`/`models/gemini*` → Gemini).
+Use a `provider:model` id (e.g. `openai:gpt-4o`) to be explicit, or `--provider`
+to set the fallback for ids that don't match any prefix.
+
 ## a real run needs a key
 
 `--dry-run` is zero-dependency and offline — it just shows which prompt would go
-to which models. A real `--run` (the default when you don't pass `--dry-run`)
-calls each model, so it needs:
+to which models. A real run (the default when you don't pass `--dry-run`) calls
+each model, so it needs whichever key matches the providers in your lineup:
 
 ```bash
-pip install anthropic          # the SDK
-export ANTHROPIC_API_KEY=sk-ant-...
+export ANTHROPIC_API_KEY=sk-ant-...   # for claude-* ids
+export OPENAI_API_KEY=sk-...          # for gpt-*/o1/o3 ids
+export GEMINI_API_KEY=...             # for gemini-* ids
 ```
 
-Without the SDK or a key, run with `--dry-run` to preview the lineup for free.
+No SDK to install — the shared helper talks to each provider directly. Without a
+key, run with `--dry-run` to preview the lineup for free.
 
 ## install
 
 ```bash
 just install lineup            # symlinks `lineup` onto your PATH + installs the skill
-pip install anthropic          # needed for a real run (not for --dry-run)
 ```
 
-[`just`](https://github.com/casey/just) ·
-[anthropic SDK](https://github.com/anthropics/anthropic-sdk-python). Or just run
-`python3 lineup.py` from this folder.
+[`just`](https://github.com/casey/just). Or just run `python3 lineup.py` from
+this folder. A real run needs one of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` /
+`GEMINI_API_KEY`; `--dry-run` needs neither a key nor any dependency.
 
 ## honest notes
 

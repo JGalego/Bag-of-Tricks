@@ -83,7 +83,10 @@ combo "frisk --check | launder" < draft.md && echo "shipped clean"
 
 Caveman cuts *tokens*. Headroom compresses *context*. This bag is about everything *else* that's annoying when you build with LLMs: they're chatty, they hide their prompts, they're easy to break, they guess when they should ask — and whatever the next annoyance turns out to be. Each trick takes on exactly one of them. New tricks get added as the irritations pile up.
 
-Everything here is Python 3.9+, mostly standard library — most tricks have **zero dependencies** (`bluff` even checks links with nothing but `urllib`). A few reach further: `strawman`, `grill`, and `lineup` use the [`anthropic`](https://github.com/anthropics/anthropic-sdk-python) SDK to actually call a model (each has a `--dry-run` that needs nothing), and `tollbooth` *optionally* uses [`tiktoken`](https://github.com/openai/tiktoken) for exact token counts, falling back to a built-in heuristic when it's absent.
+Everything here is Python 3.9+, mostly standard library — most tricks have **zero dependencies** for their default, offline path (`bluff` even checks links with nothing but `urllib`). Two ways the bag reaches further, and each is opt-in:
+
+- **`--llm` (and custom patterns).** The heuristic tricks have an offline default *and* an opt-in model-backed mode where a heuristic is a real ceiling: `alibi`, `tell`, `fold`, `mole`, `mugshot`, and `interrobang check` all take `--llm`. The model-callers (`strawman`, `grill`, `lineup`, `steno --run`) always call a model. **All of them speak Anthropic, OpenAI-compatible, *and* Gemini** — pick with `--provider` / `--model`, or let it auto-detect from whichever key is set (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`). Keys can live in a `.env` file in your project — it's auto-loaded (via [`python-dotenv`](https://github.com/theskumar/python-dotenv) if installed; real env vars win). Each calls the provider's official SDK, imported lazily, so you only `pip install` the one you use (`anthropic` / `openai` / `google-genai`). The pattern-based tricks also take `--patterns FILE` to merge in your own detectors/words/rules.
+- **`tollbooth`** *optionally* uses [`tiktoken`](https://github.com/openai/tiktoken) for exact token counts, falling back to a built-in heuristic when it's absent.
 
 ```bash
 git clone <this repo>
@@ -102,7 +105,7 @@ Everything here runs on **Python 3.9+** — that's the only hard requirement, an
 
 A few tricks reach further, and each one tells you when:
 
-- **Calling a model** — `strawman`, `grill`, `lineup`, and `steno --run` use the [`anthropic`](https://github.com/anthropics/anthropic-sdk-python) SDK and an `ANTHROPIC_API_KEY` (`pip install anthropic`). Each has a `--dry-run` / no-key path so you can try it without either.
+- **Calling a model** — the model-callers (`strawman`, `grill`, `lineup`, `steno --run`) and the opt-in `--llm` modes (`alibi`, `tell`, `fold`, `mole`, `mugshot`, `interrobang check`) work with **Anthropic, OpenAI-compatible, or Gemini** backends. Set any one of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` (or force a choice with `--provider`/`--model`), and `pip install` only that provider's SDK — [`anthropic`](https://github.com/anthropics/anthropic-sdk-python), [`openai`](https://github.com/openai/openai-python), or [`google-genai`](https://github.com/googleapis/python-genai). Point an OpenAI-compatible endpoint (Groq, Together, a local vLLM/Ollama, …) at it with `OPENAI_BASE_URL`. Keys may live in a project `.env` (auto-loaded via [`python-dotenv`](https://github.com/theskumar/python-dotenv) when installed; a real environment variable always wins, and `BOT_ENV_FILE` overrides the search). The model-callers each have a `--dry-run`; the `--llm` tricks fall back to their offline heuristic by default.
 - **`tollbooth`** *optionally* uses [`tiktoken`](https://github.com/openai/tiktoken) for exact token counts (`pip install tiktoken`); without it, it falls back to a built-in heuristic.
 - The standalone install below needs [`just`](https://github.com/casey/just). The plugin and `python3 <trick>/<trick>.py` paths don't.
 

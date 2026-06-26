@@ -49,3 +49,9 @@ say so in one line. Nothing before the JSON, nothing after.
 `salvage.py` in this folder does exactly this mechanically — pipe any chatty
 output through it (`salvage.py`, `--compact`, `--extract-only`) to recover the
 JSON without re-prompting the model.
+
+For sources with their own quirks, extend the built-in repair tables with a
+JSON file via `--patterns FILE` (repeatable) or the `SALVAGE_PATTERNS` env var.
+The file may carry `smart_quotes` (char -> replacement, e.g. `{"«": "\""}`) and
+`py_literals` (bare token -> JSON value, e.g. `{"Nil": "null"}`); entries merge
+into the built-ins and override on collision.

@@ -1,10 +1,7 @@
 """Tests for steno. Run: pytest (from repo root) or pytest steno/
 
-`--run` is stubbed so no anthropic SDK / network / key is needed.
+`--run` is stubbed (via `steno.llm_complete`) so no SDK / network / key is needed.
 """
-
-import sys
-import types
 
 import steno
 
@@ -100,37 +97,14 @@ def test_commit_alias_uses_git_diff(monkeypatch, capsys):
     assert "+hi" in out
 
 
-def _fake_anthropic(answer: str):
-    text = answer
-
-    class _Block:
-        type = "text"
-
-        def __init__(self, t):
-            self.text = t
-
-    class _Resp:
-        content = [_Block(text)]
-
-    class _Messages:
-        def create(self, **kwargs):
-            return _Resp()
-
-    class _Client:
-        messages = _Messages()
-
-    mod = types.ModuleType("anthropic")
-    mod.Anthropic = lambda *a, **k: _Client()
-    return mod
-
-
-def test_run_uses_sdk(monkeypatch, capsys):
-    monkeypatch.setitem(sys.modules, "anthropic", _fake_anthropic("LGTM."))
+def test_run_uses_helper(monkeypatch, capsys):
+    monkeypatch.setattr(steno, "llm_available", lambda provider=None: True)
+    monkeypatch.setattr(steno, "llm_complete", lambda prompt, **kwargs: "LGTM.")
     rc = steno.main(["r", "--text", "def f(): pass", "--run"])
     assert rc == 0
     assert "LGTM." in capsys.readouterr().out
 
 
-def test_run_missing_sdk(monkeypatch):
-    monkeypatch.setitem(sys.modules, "anthropic", None)
+def test_run_no_key_returns_2(monkeypatch):
+    monkeypatch.setattr(steno, "llm_available", lambda provider=None: False)
     assert steno.main(["r", "--text", "x", "--run"]) == 2

@@ -38,6 +38,32 @@ python3 deadpan.py --level ultra response.md --stats
 
 Default is `full`.
 
+### custom patterns
+
+Extend the built-in strip lists without touching the source. Pass
+`--patterns FILE` (repeatable), or set `DEADPAN_PATTERNS` to an
+os.pathsep-separated list of paths (used only when no flag is given). Each file
+is JSON whose values are lists of regexes appended to the matching built-in
+list:
+
+```json
+{
+  "openers":  ["here'?s the deal[!,. ]*"],
+  "signoffs": ["cheers[!.]?\\s*$"],
+  "hedges":   ["\\bhonestly,?\\s*"],
+  "self":     ["as your assistant[^.,!\\n]*[.,]?\\s*"]
+}
+```
+
+Openers are anchored to the start, sign-offs to the end of a sentence, and
+hedges/self-reference are stripped inline — same handling as the built-ins. The
+built-in behavior is unchanged when no patterns are supplied.
+
+```bash
+echo "Here's the deal: the answer is 42." | python3 deadpan.py --patterns my.json
+# -> The answer is 42.
+```
+
 ### what it will never touch
 
 Code fences (```` ``` ````, `~~~`) and inline `` `code` `` pass through byte for

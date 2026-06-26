@@ -38,6 +38,9 @@ python3 fold.py --report < answer.txt
 # a quick confidence-inflation gauge
 echo "Obviously this always works, no doubt." | python3 fold.py --score
 # [fold] confidence-inflation: 50.0 markers/100w (3 tells)
+
+# let a model judge unearned confidence (catches a bluff with no tell-word)
+cat answer.txt | python3 fold.py --llm
 ```
 
 ### flags
@@ -50,6 +53,45 @@ echo "Obviously this always works, no doubt." | python3 fold.py --score
 | `--json`    | emit findings as JSON                                        |
 | `--score`   | print one confidence-inflation score (markers per 100 words) |
 | `--only t1,t2` | restrict to listed marker types                          |
+| `--patterns FILE` | merge custom detectors from a JSON file (repeatable, offline only) |
+| `--llm`     | judge tone vs. evidence with a model instead of regex        |
+| `--provider P` / `--model M` | pick the LLM backend / model id for `--llm`  |
+
+### the model: `--llm`
+
+The regex detectors flag *words* (`always`, `definitely`). `--llm` flags
+*statements whose confidence isn't earned by the evidence* — a bluff that uses
+no tell-word at all — and leaves genuinely-backed or hedged prose alone. It
+judges overconfident **tone relative to evidence**, not whether the facts are
+true; calibrated text comes back clean. The model returns `{type, snippet,
+reason}` items; each snippet is located verbatim in the original text to compute
+offsets and tag it `[FOLD:type]`. A snippet that isn't found verbatim is still
+reported as a finding (with `start`/`end` of `-1`) but left untagged. On a
+provider error fold writes to stderr and exits 2.
+
+`--llm` speaks Anthropic / OpenAI-compatible / Gemini backends via the vendored
+inlined llm backend; pick one with `--provider`/`--model` or the matching
+`*_API_KEY` env var. `--llm` ignores `--patterns` (it doesn't use the detector
+table). Types: the four built-ins plus `unearned_confidence`.
+
+### custom detectors: `--patterns`
+
+Built-ins are the base; `--patterns FILE` (repeatable) merges your own regexes
+on top — affecting offline mode only, not `--llm`. A pattern file is JSON:
+
+```json
+{"detectors": {"weasel": "\\b(?:basically|honestly|literally)\\b"}}
+```
+
+Each regex is compiled case-insensitively, exactly like the built-ins. A user
+entry that reuses a built-in's name **overrides** it. As a fallback, set
+`FOLD_PATTERNS` to an `os.pathsep`-separated list of files (used only when no
+`--patterns` flag is given):
+
+```bash
+echo "This basically always works." | python3 fold.py --patterns weasel.json
+export FOLD_PATTERNS=weasel.json:more.json   # fallback when --patterns is absent
+```
 
 ### what it flags
 

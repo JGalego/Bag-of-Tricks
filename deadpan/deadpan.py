@@ -14,11 +14,31 @@ your snippets.
     -> Here's the answer: 42
 
     deadpan.py --level ultra notes.md --stats
+
+Custom patterns
+---------------
+Extend the built-in strip lists without editing the source. Pass one or more
+``--patterns FILE`` flags (repeatable), or set ``DEADPAN_PATTERNS`` to an
+os.pathsep-separated list of paths (used only when no flag is given). Each file
+is JSON whose values are lists of regexes appended to the matching built-in
+list::
+
+    {
+      "openers":  ["here'?s the deal[!,. ]*"],
+      "signoffs": ["cheers[!.]?\\\\s*$"],
+      "hedges":   ["\\\\bhonestly,?\\\\s*"],
+      "self":     ["as your assistant[^.,!\\\\n]*[.,]?\\\\s*"]
+    }
+
+Openers are anchored to the start, sign-offs to the end of a sentence, and
+hedges/self-reference are stripped inline — same handling as the built-ins.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import re
 import sys
 
@@ -99,30 +119,76 @@ def _compile(patterns: list[str], flags: int = re.IGNORECASE) -> list[re.Pattern
     return [re.compile(p, flags) for p in patterns]
 
 
-_OPENERS_RE = _compile([r"^\s*(?:" + p + r")" for p in _OPENERS])
-_SIGNOFFS_RE = _compile([_SIGNOFF_BOUNDARY + p for p in _SIGNOFFS], re.IGNORECASE | re.MULTILINE)
-_SELF_RE = _compile(_SELF)
-_HEDGES_RE = _compile(_HEDGES)
+def _compile_sets(
+    openers: list[str], signoffs: list[str], self_: list[str], hedges: list[str]
+) -> dict[str, list[re.Pattern]]:
+    """Compile the four pattern lists with their respective anchors/flags."""
+    return {
+        "openers": _compile([r"^\s*(?:" + p + r")" for p in openers]),
+        "signoffs": _compile(
+            [_SIGNOFF_BOUNDARY + p for p in signoffs], re.IGNORECASE | re.MULTILINE
+        ),
+        "self": _compile(self_),
+        "hedges": _compile(hedges),
+    }
 
 
-def _deadpan_prose(text: str, level: str) -> str:
+# Built-in compiled lists — the default used when no custom patterns are given.
+_BUILTIN_RE = _compile_sets(_OPENERS, _SIGNOFFS, _SELF, _HEDGES)
+_OPENERS_RE = _BUILTIN_RE["openers"]
+_SIGNOFFS_RE = _BUILTIN_RE["signoffs"]
+_SELF_RE = _BUILTIN_RE["self"]
+_HEDGES_RE = _BUILTIN_RE["hedges"]
+
+# Env var carrying os.pathsep-separated pattern files when --patterns is absent.
+_ENV_VAR = "DEADPAN_PATTERNS"
+
+
+def _load_patterns(paths: list[str] | None) -> dict[str, list[re.Pattern]]:
+    """Load + merge custom strip regexes from JSON, return compiled pattern sets.
+
+    Appends the user regexes to the matching built-in list (``openers``,
+    ``signoffs``, ``self``, ``hedges``) and recompiles. When ``paths`` is None,
+    the ``DEADPAN_PATTERNS`` env var (os.pathsep-separated) is consulted instead.
+    """
+    openers = list(_OPENERS)
+    signoffs = list(_SIGNOFFS)
+    self_ = list(_SELF)
+    hedges = list(_HEDGES)
+
+    if paths is None:
+        env = os.environ.get(_ENV_VAR, "")
+        paths = [p for p in env.split(os.pathsep) if p] if env else []
+
+    for path in paths:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        openers.extend(data.get("openers") or [])
+        signoffs.extend(data.get("signoffs") or [])
+        self_.extend(data.get("self") or [])
+        hedges.extend(data.get("hedges") or [])
+
+    return _compile_sets(openers, signoffs, self_, hedges)
+
+
+def _deadpan_prose(text: str, level: str, sets: dict[str, list[re.Pattern]]) -> str:
     """Apply the strip to a chunk of prose (never to code)."""
     # Self-reference and emoji go at every level.
-    for rx in _SELF_RE:
+    for rx in sets["self"]:
         text = rx.sub("", text)
     if level != "lite":
         text = _EMOJI.sub("", text)
 
     # Openers: strip from the start of the whole chunk and each paragraph.
-    for rx in _OPENERS_RE:
+    for rx in sets["openers"]:
         text = rx.sub("", text)
 
     # Sign-offs: strip from the end.
-    for rx in _SIGNOFFS_RE:
+    for rx in sets["signoffs"]:
         text = rx.sub("", text)
 
     if level in ("full", "ultra"):
-        for rx in _HEDGES_RE:
+        for rx in sets["hedges"]:
             text = rx.sub("", text)
 
     if level == "ultra":
@@ -141,15 +207,23 @@ def _deadpan_prose(text: str, level: str) -> str:
 _FENCE = re.compile(r"(```.*?```|~~~.*?~~~|`[^`\n]+`)", re.DOTALL)
 
 
-def deadpan(text: str, level: str = "full") -> str:
-    """Strip prose while preserving fenced/inline code verbatim."""
+def deadpan(
+    text: str, level: str = "full", extra: dict[str, list[re.Pattern]] | None = None
+) -> str:
+    """Strip prose while preserving fenced/inline code verbatim.
+
+    ``extra`` optionally supplies merged compiled pattern sets (built-ins plus
+    user regexes from ``_load_patterns``); defaults to the built-in lists so
+    existing behavior is unchanged when no patterns are given.
+    """
+    sets = _BUILTIN_RE if extra is None else extra
     out = []
     last = 0
     for m in _FENCE.finditer(text):
-        out.append(_deadpan_prose(text[last : m.start()], level))
+        out.append(_deadpan_prose(text[last : m.start()], level, sets))
         out.append(m.group(0))  # code untouched
         last = m.end()
-    out.append(_deadpan_prose(text[last:], level))
+    out.append(_deadpan_prose(text[last:], level, sets))
     result = "".join(out)
     # Capitalize the very first letter if a strip lowercased the opener.
     result = result.lstrip()
@@ -177,6 +251,13 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="print bytes/chars saved to stderr",
     )
+    p.add_argument(
+        "--patterns",
+        metavar="FILE",
+        action="append",
+        help="JSON file of custom openers/signoffs/hedges/self regexes to merge in "
+        "(repeatable; falls back to $DEADPAN_PATTERNS when absent)",
+    )
     args = p.parse_args(argv)
 
     if args.files:
@@ -184,7 +265,14 @@ def main(argv: list[str] | None = None) -> int:
     else:
         raw = sys.stdin.read()
 
-    out = deadpan(raw, args.level)
+    # Merge custom patterns (built-ins are the base; user entries extend them).
+    try:
+        extra = _load_patterns(args.patterns)
+    except (OSError, ValueError, re.error) as e:
+        sys.stderr.write(f"[deadpan] could not load patterns: {e}\n")
+        return 2
+
+    out = deadpan(raw, args.level, extra=extra)
     sys.stdout.write(out)
 
     if args.stats:

@@ -48,12 +48,47 @@ trailing sentence punctuation left out. Network is only needed to *check*.
 
 ### flags
 
-| flag           | does                                          |
-|----------------|-----------------------------------------------|
-| `--dry-run`    | list URLs only, no network, exit 0            |
-| `--timeout S`  | per-URL timeout in seconds (default 5)        |
-| `--json`       | structured results                            |
-| `-q`, `--quiet`| print only the dead ones                      |
+| flag             | does                                          |
+|------------------|-----------------------------------------------|
+| `--dry-run`      | list URLs (and citations) only, no network    |
+| `--timeout S`    | per-URL timeout in seconds (default 5)        |
+| `--json`         | structured results                            |
+| `-q`, `--quiet`  | print only the dead ones                      |
+| `--patterns FILE`| merge custom extraction patterns (repeatable) |
+
+### custom patterns
+
+The built-in extraction knows bare `http(s)` URLs and markdown targets. Teach
+it extra link shapes and non-URL citations with a JSON file via `--patterns
+FILE` (repeatable) or the `BLUFF_PATTERNS` env var (`os.pathsep`-separated
+paths, used when the flag is absent). User entries **merge with** the built-in
+extraction; the built-ins stay the base.
+
+```json
+{
+  "url_patterns": ["ftp://\\S+", "<(https?://[^>]+)>"],
+  "citation_patterns": ["10\\.\\d{4,}/\\S+", "arXiv:\\d{4}\\.\\d+"]
+}
+```
+
+- `url_patterns` are extra regexes. Each match (group 1 if the pattern has a
+  capture group, else the whole match) is treated like a discovered URL and is
+  **checked over the network** alongside the built-in URLs.
+- `citation_patterns` match non-URL references (DOIs, arXiv ids, …). They are
+  extracted and **listed but never network-checked**: in `--dry-run` they
+  appear after the URLs; in check mode they report `[cited]` / ✓ with no
+  request. Useful for surfacing references without pretending they're links.
+
+```bash
+python3 bluff.py --patterns mine.json --dry-run answer.md
+# ftp://files.example/x
+# 10.1000/xyz
+
+BLUFF_PATTERNS=mine.json python3 bluff.py answer.md
+# ✓ [200] ftp://files.example/x
+# ✓ [cited] 10.1000/xyz
+# [bluff] 1 link(s), 1 cited, 0 dead
+```
 
 ## install
 

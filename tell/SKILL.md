@@ -50,3 +50,15 @@ closing "consider rewriting" unless the user asked what to do about it.
 with counts. Use it to diagnose, gate prose in CI (`tell --max 30 draft.md`), or
 spot-check your own drafts. It pairs with **deadpan**: deadpan stops the tells at
 generation time, tell catches the ones that slipped through.
+
+Two modes and a knob:
+
+- `--llm` — instead of the keyword lexicon, hand the passage to a model that
+  reads it the way a human would, catching paraphrased slop and structural
+  blandness the word list misses. Same `{score, hits, total}` output, so
+  `--score`/`--json`/`--max` still work. `--provider` and `--model` pick the
+  backend (defaults from the environment); failure exits 2, no silent fallback.
+- `--patterns FILE` (repeatable) — extend the *offline* lexicon with your own
+  tells from a JSON file `{"words": [...], "phrases": [[label, regex], ...]}`.
+  Honors `$TELL_PATTERNS` (os.pathsep-separated) as a fallback. Your entries
+  extend the built-ins; they do not affect `--llm`.

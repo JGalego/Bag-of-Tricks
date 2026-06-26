@@ -45,7 +45,7 @@ install +tricks="all":
         echo "  + skill -> $skills/$t/SKILL.md"
       fi
     done
-    echo "make sure $bin is on your PATH (strawman also needs: pip install anthropic)."
+    echo "make sure $bin is on your PATH (--llm modes need one provider SDK: pip install anthropic | openai | google-genai)."
 
 # uninstall one or more tricks (default: all)
 uninstall +tricks="all":

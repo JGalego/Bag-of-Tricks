@@ -67,4 +67,4 @@ case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
   *) printf '  add it to your PATH:  export PATH="%s:$PATH"\n' "$BIN_DIR" ;;
 esac
-printf '  skills → %s   ·   a few tricks want: pip install anthropic\n\n' "$SKILLS_DIR"
+printf '  skills → %s   ·   --llm modes want one provider SDK: pip install anthropic | openai | google-genai\n\n' "$SKILLS_DIR"

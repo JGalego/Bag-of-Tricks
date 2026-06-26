@@ -1,6 +1,8 @@
 """Tests for frisk. Run: pytest (from repo root) or pytest frisk/"""
 
-from frisk import frisk, main
+import json
+
+from frisk import _load_patterns, frisk, main
 
 AWS = "AKIAIOSFODNN7EXAMPLE"
 SK = "sk-abcdefghijklmnopqrstuvwxyz1234567890"
@@ -168,3 +170,78 @@ def test_pii_flag_via_main(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "Ada Lovelace" not in out
     assert "[REDACTED:name]" in out
+
+
+# --- custom patterns ------------------------------------------------------
+
+
+def _write_patterns(tmp_path, data):
+    p = tmp_path / "patterns.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    return p
+
+
+def test_custom_detector_redacts_custom_token(tmp_path):
+    pats = _write_patterns(tmp_path, {"detectors": {"acme_key": r"ACME-[0-9]{6}"}})
+    detectors, pii_keys = _load_patterns([str(pats)])
+    out, findings = frisk("token=ACME-123456 ok", detectors=detectors)
+    assert "ACME-123456" not in out
+    assert "[REDACTED:acme_key]" in out
+    assert any(f["type"] == "acme_key" for f in findings)
+
+
+def test_custom_detector_runs_by_default(tmp_path):
+    # No types passed -> custom detector should run like a built-in.
+    pats = _write_patterns(tmp_path, {"detectors": {"acme_key": r"ACME-[0-9]{6}"}})
+    detectors, _ = _load_patterns([str(pats)])
+    out, findings = frisk("ACME-123456", detectors=detectors)
+    assert any(f["type"] == "acme_key" for f in findings)
+
+
+def test_builtins_still_work_with_custom_patterns(tmp_path):
+    pats = _write_patterns(tmp_path, {"detectors": {"acme_key": r"ACME-[0-9]{6}"}})
+    detectors, _ = _load_patterns([str(pats)])
+    out, findings = frisk(f"aws={AWS}", detectors=detectors)
+    assert AWS not in out
+    assert any(f["type"] == "aws_key" for f in findings)
+
+
+def test_custom_pii_key_redacts_under_pii(tmp_path):
+    pats = _write_patterns(tmp_path, {"pii_keys": {"employeeId": "employee_id"}})
+    _, pii_keys = _load_patterns([str(pats)])
+    text = '{"employeeId": "E-4471"}'
+    out, findings = frisk(text, pii=True, pii_keys=pii_keys)
+    assert "E-4471" not in out
+    assert "[REDACTED:employee_id]" in out
+    assert any(f["type"] == "employee_id" for f in findings)
+
+
+def test_custom_detector_via_main_patterns_flag(tmp_path, capsys):
+    pats = _write_patterns(tmp_path, {"detectors": {"acme_key": r"ACME-[0-9]{6}"}})
+    src = tmp_path / "ctx.txt"
+    src.write_text("token=ACME-123456\n", encoding="utf-8")
+    assert main(["--patterns", str(pats), str(src)]) == 0
+    out = capsys.readouterr().out
+    assert "ACME-123456" not in out
+    assert "[REDACTED:acme_key]" in out
+
+
+def test_custom_detector_via_env_var(tmp_path, capsys, monkeypatch):
+    pats = _write_patterns(tmp_path, {"detectors": {"acme_key": r"ACME-[0-9]{6}"}})
+    monkeypatch.setenv("FRISK_PATTERNS", str(pats))
+    src = tmp_path / "ctx.txt"
+    src.write_text("token=ACME-123456\n", encoding="utf-8")
+    assert main([str(src)]) == 0
+    out = capsys.readouterr().out
+    assert "ACME-123456" not in out
+    assert "[REDACTED:acme_key]" in out
+
+
+def test_only_accepts_custom_detector(tmp_path, capsys):
+    pats = _write_patterns(tmp_path, {"detectors": {"acme_key": r"ACME-[0-9]{6}"}})
+    src = tmp_path / "ctx.txt"
+    src.write_text("token=ACME-123456\n", encoding="utf-8")
+    # --only with the custom detector must validate and apply.
+    assert main(["--patterns", str(pats), "--only", "acme_key", str(src)]) == 0
+    out = capsys.readouterr().out
+    assert "[REDACTED:acme_key]" in out

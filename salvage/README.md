@@ -57,8 +57,38 @@ in-string state and backslash escapes, so `{"note": "use {this}"}` stays whole.
 | `-c`/`--compact` | one-line output (no indentation)                |
 | `--indent N`     | indent width for pretty output (default `2`)    |
 | `--extract-only` | locate the JSON substring but don't repair it   |
+| `--patterns FILE`| merge custom repair tables (repeatable)         |
 
 Unsalvageable input writes a short note to stderr and exits `1`.
+
+### custom patterns
+
+The built-in repair tables cover the *common* damage. If your source has its
+own quirks — guillemet quotes `«»`, a non-Python literal like `Nil` — extend
+the tables with a JSON file via `--patterns FILE` (repeatable) or the
+`SALVAGE_PATTERNS` env var (`os.pathsep`-separated paths, used when the flag is
+absent). User entries **merge into** the built-ins and override on collision;
+the built-ins stay the base.
+
+```json
+{
+  "smart_quotes": {"«": "\"", "»": "\""},
+  "py_literals": {"Nil": "null", "TRUE": "true"}
+}
+```
+
+- `smart_quotes` maps any character to its replacement, applied before parsing
+  (so it can fix string boundaries) — same machinery as the built-in `“ ” ‘ ’`.
+- `py_literals` maps a bare token to its JSON value. The token is matched as a
+  whole word *outside* strings only; the literal regex is rebuilt from the
+  merged keys, so `Nil` becomes recognized alongside `True`/`False`/`None`.
+
+```bash
+echo '{«key»: Nil}' | python3 salvage.py --patterns mine.json --compact
+# -> {"key":null}
+
+SALVAGE_PATTERNS=mine.json python3 salvage.py reply.txt
+```
 
 ## install
 

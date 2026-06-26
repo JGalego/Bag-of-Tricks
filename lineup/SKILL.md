@@ -29,7 +29,8 @@ suspect that doesn't match the others.
 4. **You're the witness.** lineup lays the answers out; it doesn't tell you who
    did it. Read them yourself — or pass `--judge MODEL` to ask one model to pick.
 5. **Pick a sensible lineup.** Default is an opus + a sonnet + a haiku tier. Name
-   your own with `--models a,b,c` when you want a specific comparison.
+   your own with `--models a,b,c` when you want a specific comparison — including
+   across providers (ids route by prefix, or use `provider:model`).
 
 ## What lineup is NOT
 
@@ -57,21 +58,23 @@ would be sent — verbatim — to each of:
   • claude-haiku-4-5
 ```
 
-A real run lines the answers up, each under its model id:
+A real run lines the answers up, each under its model id. The lineup can mix
+providers — ids route by prefix (`gpt-4o` → OpenAI, `gemini-2.5-flash` →
+Gemini) or with a `provider:model` id:
 
 ```
+$ lineup --prompt "Explain TCP in one sentence." \
+    --models claude-opus-4-8,gpt-4o,gemini-2.5-flash
+
 ── claude-opus-4-8 ───────────────────────────────────────
 TCP is a connection-oriented protocol that delivers an ordered, reliable
 byte stream by acknowledging and retransmitting lost segments.
-  [tokens: in=14 out=31]
 
-── claude-sonnet-4-6 ─────────────────────────────────────
+── gpt-4o ────────────────────────────────────────────────
 TCP reliably delivers an ordered stream of bytes between two hosts...
-  [tokens: in=14 out=27]
 
-── claude-haiku-4-5 ──────────────────────────────────────
+── gemini-2.5-flash ──────────────────────────────────────
 TCP is a protocol that makes sure data arrives in order and intact.
-  [tokens: in=14 out=18]
 
 3/3 answered.
 ```
@@ -86,7 +89,9 @@ closing synthesis the user didn't ask for.
 ## Companion tool
 
 `lineup.py` in this folder runs the fan-out mechanically. Pipe or pass a prompt
-(`lineup.py --prompt "..."`), set the lineup with `--models a,b,c`, preview
-without spending a token (`lineup.py --dry-run`), or ask a model to pick the
-winner (`lineup.py --judge claude-opus-4-8`). A real run needs
-`pip install anthropic` and `ANTHROPIC_API_KEY`; `--dry-run` needs neither.
+(`lineup.py --prompt "..."`), set the lineup with `--models a,b,c` (mix
+providers, or `provider:model` ids), preview without spending a token
+(`lineup.py --dry-run`), or ask a model to pick the winner
+(`lineup.py --judge claude-opus-4-8`). A real run needs the matching API key
+(`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`) plus that provider's SDK;
+`--dry-run` needs neither.

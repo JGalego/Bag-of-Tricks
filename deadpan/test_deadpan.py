@@ -1,8 +1,10 @@
 """Tests for deadpan. Run: pytest (from repo root) or pytest deadpan/"""
 
+import json
+
 import pytest
 
-from deadpan import deadpan
+from deadpan import _load_patterns, deadpan, main
 
 
 @pytest.mark.parametrize(
@@ -64,3 +66,59 @@ def test_trailing_newline_preserved():
 def test_ultra_collapses_blank_lines():
     out = deadpan("Line one.\n\n\n\nLine two.", level="ultra")
     assert "\n\n\n" not in out
+
+
+# --- custom patterns ------------------------------------------------------
+
+
+def _write_patterns(tmp_path, data):
+    p = tmp_path / "patterns.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    return p
+
+
+def test_custom_opener_stripped(tmp_path):
+    pats = _write_patterns(tmp_path, {"openers": [r"here'?s the deal[!,. ]*"]})
+    extra = _load_patterns([str(pats)])
+    out = deadpan("Here's the deal: the answer is 42.", extra=extra)
+    assert out.strip() == "The answer is 42."
+
+
+def test_default_unchanged_without_patterns():
+    # No extra -> built-in behavior; a custom phrase is NOT stripped.
+    assert deadpan("Here's the deal: the answer is 42.").strip() == (
+        "Here's the deal: the answer is 42."
+    )
+
+
+def test_builtin_openers_still_stripped_with_custom(tmp_path):
+    pats = _write_patterns(tmp_path, {"openers": [r"here'?s the deal[!,. ]*"]})
+    extra = _load_patterns([str(pats)])
+    out = deadpan("Certainly! The answer is 42.", extra=extra)
+    assert out.strip() == "The answer is 42."
+
+
+def test_custom_signoff_stripped(tmp_path):
+    pats = _write_patterns(tmp_path, {"signoffs": [r"cheers[!.]?\s*$"]})
+    extra = _load_patterns([str(pats)])
+    out = deadpan("The answer is 42. Cheers!", extra=extra)
+    assert out.strip() == "The answer is 42."
+
+
+def test_custom_patterns_via_main_flag(tmp_path, capsys):
+    pats = _write_patterns(tmp_path, {"openers": [r"here'?s the deal[!,. ]*"]})
+    src = tmp_path / "resp.md"
+    src.write_text("Here's the deal: the answer is 42.\n", encoding="utf-8")
+    assert main([str(src), "--patterns", str(pats)]) == 0
+    out = capsys.readouterr().out
+    assert out.strip() == "The answer is 42."
+
+
+def test_custom_patterns_via_env_var(tmp_path, capsys, monkeypatch):
+    pats = _write_patterns(tmp_path, {"openers": [r"here'?s the deal[!,. ]*"]})
+    monkeypatch.setenv("DEADPAN_PATTERNS", str(pats))
+    src = tmp_path / "resp.md"
+    src.write_text("Here's the deal: the answer is 42.\n", encoding="utf-8")
+    assert main([str(src)]) == 0
+    out = capsys.readouterr().out
+    assert out.strip() == "The answer is 42."

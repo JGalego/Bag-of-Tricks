@@ -46,6 +46,7 @@ python3 frisk.py --report < context.md
 | `--pii`     | also redact free-form PII (names, addresses, DOB) by field name |
 | `--only t1,t2` | restrict to listed detector types                       |
 | `--tag FMT` | redaction tag format, e.g. `'<<{type}>>'`                  |
+| `--patterns FILE` | merge custom detectors/pii_keys from JSON (repeatable) |
 
 ### what it looks for
 
@@ -63,6 +64,34 @@ config — reach for it on customer/user/profile data.
 
 Findings carry their offsets, so the cleaned text round-trips byte-for-byte
 around the redactions.
+
+### custom patterns
+
+Extend the built-in tables without touching the source. Pass `--patterns FILE`
+(repeatable), or set `FRISK_PATTERNS` to an os.pathsep-separated list of paths
+(used only when no flag is given). Each file is JSON:
+
+```json
+{
+  "detectors": {"acme_key": "ACME-[0-9]{10}"},
+  "pii_keys":  {"employeeId": "employee_id"}
+}
+```
+
+- `detectors` — each `name: regex` is compiled and merged into the built-ins.
+  New detectors **run by default** like the built-ins; only the existing `ipv4`
+  stays opt-in. `--only` and the default set account for them automatically.
+- `pii_keys` — each `fieldname: label` is normalized (lowercased,
+  non-alphanumerics stripped, so `employeeId` ≡ `employee_id`) and merged into
+  the `--pii` field-name table. The value under that field is redacted to
+  `[REDACTED:label]`.
+
+User entries override the built-ins on key collision; built-ins are the base.
+
+```bash
+echo "token=ACME-1234567890" | python3 frisk.py --patterns my.json
+# stdout: token=[REDACTED:acme_key]
+```
 
 ### what it will never do
 

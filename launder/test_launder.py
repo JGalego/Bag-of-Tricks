@@ -1,6 +1,8 @@
 """Tests for launder. Run: pytest (from repo root) or pytest launder/"""
 
-from launder import launder, main
+import json
+
+from launder import _load_patterns, launder, main
 
 ZWSP = "​"  # ZERO WIDTH SPACE
 WORD_JOINER = "⁠"
@@ -119,3 +121,64 @@ def test_report_lists_categories(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "zero_width" in out
     assert "smart_quote" in out
+
+
+# --- custom patterns ------------------------------------------------------
+
+
+def _write_patterns(tmp_path, data):
+    p = tmp_path / "patterns.json"
+    p.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    return p
+
+
+def test_custom_category_scrubbed_and_reported(tmp_path):
+    pats = _write_patterns(tmp_path, {"bullet": {"•": "-"}})
+    extra = _load_patterns([str(pats)])
+    out, findings = launder("• item", extra=extra)
+    assert out == "- item"
+    assert any(f["type"] == "bullet" for f in findings)
+
+
+def test_custom_extends_known_category(tmp_path):
+    pats = _write_patterns(tmp_path, {"smart_quote": {"«": '"', "»": '"'}})
+    extra = _load_patterns([str(pats)])
+    out, findings = launder("«hi»", extra=extra)
+    assert out == '"hi"'
+    assert {f["type"] for f in findings} == {"smart_quote"}
+
+
+def test_builtins_still_work_with_custom_patterns(tmp_path):
+    pats = _write_patterns(tmp_path, {"bullet": {"•": "-"}})
+    extra = _load_patterns([str(pats)])
+    out, findings = launder("he said “hi”", extra=extra)
+    assert out == 'he said "hi"'
+    assert {f["type"] for f in findings} == {"smart_quote"}
+
+
+def test_pure_ascii_round_trips_with_custom_patterns(tmp_path):
+    pats = _write_patterns(tmp_path, {"bullet": {"•": "-"}})
+    extra = _load_patterns([str(pats)])
+    text = "just plain ascii, nothing fancy."
+    out, findings = launder(text, extra=extra)
+    assert out == text
+    assert findings == []
+
+
+def test_custom_patterns_via_main_flag(tmp_path, capsys):
+    pats = _write_patterns(tmp_path, {"bullet": {"•": "-"}})
+    src = tmp_path / "draft.txt"
+    src.write_text("• item\n", encoding="utf-8")
+    assert main(["--patterns", str(pats), str(src)]) == 0
+    out = capsys.readouterr().out
+    assert out == "- item\n"
+
+
+def test_custom_patterns_via_env_var(tmp_path, capsys, monkeypatch):
+    pats = _write_patterns(tmp_path, {"bullet": {"•": "-"}})
+    monkeypatch.setenv("LAUNDER_PATTERNS", str(pats))
+    src = tmp_path / "draft.txt"
+    src.write_text("• item\n", encoding="utf-8")
+    assert main([str(src)]) == 0
+    out = capsys.readouterr().out
+    assert out == "- item\n"

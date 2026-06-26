@@ -1,6 +1,7 @@
 """Tests for alibi. Run: pytest (from repo root) or pytest alibi/"""
 
-from alibi import alibi, main
+import alibi as alibi_mod
+from alibi import alibi, alibi_llm, main
 
 SOURCE = (
     "The Eiffel Tower is a wrought-iron lattice tower in Paris. "
@@ -102,3 +103,53 @@ def test_report_lists_unsupported(tmp_path, capsys):
 def test_source_text_flag():
     results = alibi("Paris is the capital of France.", "Paris is the capital of France.")
     assert results[0]["supported"] is True
+
+
+# --- model-backed (--llm) mode: stub the network seam, never call out --------
+
+
+def _stub_complete(monkeypatch, scores):
+    """Make alibi_llm's model return the given per-index grounding scores."""
+
+    def fake_complete(prompt, **kwargs):
+        return {"claims": [{"index": i, "score": s, "reason": "r"} for i, s in enumerate(scores)]}
+
+    monkeypatch.setattr(alibi_mod, "llm_complete", fake_complete)
+
+
+def test_llm_mode_scores_each_claim(monkeypatch):
+    answer = "The Eiffel Tower is 330 metres tall. It is painted bright orange every spring."
+    _stub_complete(monkeypatch, [0.95, 0.05])
+    results = alibi_llm(answer, SOURCE)
+    assert [r["supported"] for r in results] == [True, False]
+    assert results[0]["reason"] == "r"
+
+
+def test_llm_mode_catches_contradiction_lexical_misses(monkeypatch):
+    # A contradiction that REUSES source vocabulary: lexical overlap is fooled,
+    # the model is not. This is the whole reason --llm exists.
+    claim = "The Eiffel Tower is 999 metres tall."
+    assert alibi(claim, SOURCE)[0]["supported"] is True  # lexical false positive
+    _stub_complete(monkeypatch, [0.0])
+    assert alibi_llm(claim, SOURCE)[0]["supported"] is False
+
+
+def test_main_llm_flag_routes_to_model(monkeypatch, tmp_path, capsys):
+    _stub_complete(monkeypatch, [0.0])
+    ans = tmp_path / "answer.txt"
+    src = tmp_path / "source.txt"
+    ans.write_text("The Eiffel Tower is 999 metres tall.\n", encoding="utf-8")
+    src.write_text(SOURCE + "\n", encoding="utf-8")
+    assert main(["--llm", "--check", str(ans), "--source", str(src)]) == 1
+
+
+def test_main_llm_failure_returns_2(monkeypatch, tmp_path):
+    def boom(*a, **k):
+        raise alibi_mod.LLMError("no key")
+
+    monkeypatch.setattr(alibi_mod, "llm_complete", boom)
+    ans = tmp_path / "answer.txt"
+    src = tmp_path / "source.txt"
+    ans.write_text("Some claim.\n", encoding="utf-8")
+    src.write_text(SOURCE + "\n", encoding="utf-8")
+    assert main(["--llm", str(ans), "--source", str(src)]) == 2

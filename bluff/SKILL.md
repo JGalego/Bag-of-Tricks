@@ -45,3 +45,9 @@ reports each link with a ✓/✗, status code, and error.
 - It **needs network** to actually verify links.
 - `--dry-run` extracts and lists the URLs with **no network at all** — handy
   when you just want to see what was cited. Extraction is always offline.
+- `--patterns FILE` (repeatable; or the `BLUFF_PATTERNS` env var) merges custom
+  extraction patterns. The JSON file may carry `url_patterns` (extra regexes
+  whose match — group 1 if captured, else the whole match — is checked like a
+  URL) and `citation_patterns` (regexes for non-URL references like DOIs,
+  listed but **not** network-checked; reported `[cited]` / ✓). Built-ins stay
+  the base.

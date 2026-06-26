@@ -1,13 +1,11 @@
 """Tests for grill. Run: pytest (from repo root) or pytest grill/
 
-The real run() calls the Anthropic API; these tests stub the `anthropic`
-module so no key or network is needed. The dry-run / plan paths are pure and
-never import anthropic at all.
+The real run() calls a model through the inlined llm backend; these tests
+stub `llm_complete` so no key or network is needed. The dry-run / plan paths
+are pure and never touch a provider at all.
 """
 
-import json
 import sys
-import types
 
 import grill
 
@@ -49,9 +47,11 @@ def test_dry_run_lists_angles_and_questions(capsys):
     assert "source" in out.lower()  # the probing question text shows up
 
 
-def test_main_dry_run_returns_zero_without_anthropic(monkeypatch, capsys):
-    # Guarantee a real run would explode if attempted — proves dry-run never imports it.
-    monkeypatch.setitem(sys.modules, "anthropic", None)
+def test_main_dry_run_returns_zero_without_provider(monkeypatch, capsys):
+    # Guarantee a real run would explode if attempted — proves dry-run never calls a model.
+    monkeypatch.setattr(
+        grill, "llm_complete", lambda *a, **k: (_ for _ in ()).throw(AssertionError("called"))
+    )
     rc = grill.main(["--dry-run", "--angles", "assumptions"])
     out = capsys.readouterr().out
     assert rc == 0
@@ -74,34 +74,15 @@ def test_main_passes_question_through(capsys):
     assert "Is it safe?" in out
 
 
-def _fake_anthropic(finding: dict):
-    """Build a stand-in `anthropic` module whose client returns `finding`."""
-    text = json.dumps(finding)
-
-    class _Block:
-        type = "text"
-
-        def __init__(self, t):
-            self.text = t
-
-    class _Resp:
-        content = [_Block(text)]
-
-    class _Messages:
-        def create(self, **kwargs):
-            return _Resp()
-
-    class _Client:
-        messages = _Messages()
-
-    mod = types.ModuleType("anthropic")
-    mod.Anthropic = lambda *a, **k: _Client()
-    return mod
+def _stub(monkeypatch, finding):
+    """Make `llm_complete` return `finding` (a parsed dict) directly."""
+    monkeypatch.setattr(grill, "llm_available", lambda *a, **k: True)
+    monkeypatch.setattr(grill, "llm_complete", lambda *a, **k: dict(finding))
 
 
 def test_run_solid_answer_exits_zero(monkeypatch, capsys):
     finding = {"verdict": "holds", "angle": "assumptions", "question": "q", "finding": "stands"}
-    monkeypatch.setitem(sys.modules, "anthropic", _fake_anthropic(finding))
+    _stub(monkeypatch, finding)
     rc = grill.run("a careful, well-sourced answer", "", ["assumptions", "sources"])
     out = capsys.readouterr().out
     assert rc == 0
@@ -116,7 +97,7 @@ def test_run_cracking_answer_exits_one(monkeypatch, capsys):
         "question": "what's the source?",
         "finding": "asserted with no evidence",
     }
-    monkeypatch.setitem(sys.modules, "anthropic", _fake_anthropic(finding))
+    _stub(monkeypatch, finding)
     rc = grill.run("trust me bro", "Is this true?", ["sources"])
     out = capsys.readouterr().out
     assert rc == 1
@@ -124,6 +105,6 @@ def test_run_cracking_answer_exits_one(monkeypatch, capsys):
     assert "what's the source?" in out
 
 
-def test_run_missing_sdk_returns_2(monkeypatch):
-    monkeypatch.setitem(sys.modules, "anthropic", None)
+def test_run_missing_key_returns_2(monkeypatch):
+    monkeypatch.setattr(grill, "llm_available", lambda *a, **k: False)
     assert grill.run("answer", "", ["assumptions"]) == 2

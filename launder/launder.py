@@ -13,12 +13,27 @@ filter: cleaned text to stdout, a one-line summary to stderr.
 
     cat draft.md | launder.py --check     # exit 1 if any fingerprint present
     launder.py --report < draft.md        # list what it found by category
+
+Custom patterns
+---------------
+Extend the scrub table without editing the source. Pass one or more
+``--patterns FILE`` flags (repeatable), or set ``LAUNDER_PATTERNS`` to an
+os.pathsep-separated list of paths (used only when no flag is given). Each file
+is JSON mapping a category to a ``char -> replacement`` map::
+
+    {"smart_quote": {"«": "\\"", "»": "\\""},
+     "bullet":      {"•": "-"}}
+
+Known categories extend the built-in maps; brand-new categories (like
+``bullet``) are allowed and show up in reports/findings under that name. User
+entries override the built-ins on character collision.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 # --- character-level scrubbers --------------------------------------------
@@ -148,11 +163,41 @@ _BASE_MAPS: dict[str, dict[str, str]] = {
 }
 
 
-def _build_table(homoglyphs: bool) -> dict[str, tuple[str, str]]:
+# Env var carrying os.pathsep-separated pattern files when --patterns is absent.
+_ENV_VAR = "LAUNDER_PATTERNS"
+
+
+def _load_patterns(paths: list[str] | None) -> dict[str, dict[str, str]]:
+    """Load + merge custom ``{category: {char: replacement}}`` maps from JSON.
+
+    Returns a merged map keyed by category. When ``paths`` is None, the
+    ``LAUNDER_PATTERNS`` env var (os.pathsep-separated) is consulted instead.
+    Known categories extend the built-ins; new categories are allowed.
+    """
+    extra: dict[str, dict[str, str]] = {}
+
+    if paths is None:
+        env = os.environ.get(_ENV_VAR, "")
+        paths = [p for p in env.split(os.pathsep) if p] if env else []
+
+    for path in paths:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        for category, mapping in data.items():
+            extra.setdefault(category, {}).update(mapping)
+    return extra
+
+
+def _build_table(
+    homoglyphs: bool, extra: dict[str, dict[str, str]] | None = None
+) -> dict[str, tuple[str, str]]:
     """Flatten the per-category maps into ``char -> (category, replacement)``.
 
     The dash maps overlap conceptually with ``_DASH``; we build straight from
-    the per-category maps so each character reports the right category.
+    the per-category maps so each character reports the right category. ``extra``
+    is a merged ``{category: {char: replacement}}`` map of user patterns: known
+    categories extend the built-ins, new categories are added, and per-character
+    collisions let the user entry win (it is applied last).
     """
     table: dict[str, tuple[str, str]] = {}
     for category, mapping in _BASE_MAPS.items():
@@ -161,10 +206,16 @@ def _build_table(homoglyphs: bool) -> dict[str, tuple[str, str]]:
     if homoglyphs:
         for char, repl in _HOMOGLYPH.items():
             table[char] = ("homoglyph", repl)
+    if extra:
+        for category, mapping in extra.items():
+            for char, repl in mapping.items():
+                table[char] = (category, repl)
     return table
 
 
-def launder(text: str, homoglyphs: bool = False) -> tuple[str, list[dict]]:
+def launder(
+    text: str, homoglyphs: bool = False, extra: dict[str, dict[str, str]] | None = None
+) -> tuple[str, list[dict]]:
     """Wash the mechanical fingerprints out of ``text``.
 
     Returns ``(cleaned_text, findings)`` where each finding is
@@ -174,9 +225,11 @@ def launder(text: str, homoglyphs: bool = False) -> tuple[str, list[dict]]:
 
     Pure ASCII text round-trips byte-for-byte with an empty findings list.
     ``homoglyphs=True`` additionally normalizes confusable Cyrillic/Greek
-    look-alikes back to ASCII — opt-in, because it is lossy.
+    look-alikes back to ASCII — opt-in, because it is lossy. ``extra`` is a
+    merged ``{category: {char: replacement}}`` map of user patterns (see
+    ``_load_patterns``); characters in custom categories report under that name.
     """
-    table = _build_table(homoglyphs)
+    table = _build_table(homoglyphs, extra)
     out: list[str] = []
     findings: list[dict] = []
     for i, ch in enumerate(text):
@@ -236,6 +289,13 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="also normalize confusable Cyrillic/Greek look-alikes (opt-in; lossy)",
     )
+    p.add_argument(
+        "--patterns",
+        metavar="FILE",
+        action="append",
+        help="JSON file of custom {category: {char: replacement}} maps to merge in "
+        "(repeatable; falls back to $LAUNDER_PATTERNS when absent)",
+    )
     args = p.parse_args(argv)
 
     if args.files:
@@ -243,7 +303,14 @@ def main(argv: list[str] | None = None) -> int:
     else:
         raw = sys.stdin.read()
 
-    cleaned, findings = launder(raw, homoglyphs=args.homoglyphs)
+    # Merge custom patterns (built-ins are the base; user entries extend/override).
+    try:
+        extra = _load_patterns(args.patterns)
+    except (OSError, ValueError) as e:
+        sys.stderr.write(f"[launder] could not load patterns: {e}\n")
+        return 2
+
+    cleaned, findings = launder(raw, homoglyphs=args.homoglyphs, extra=extra)
 
     # --json: structured summary to stdout.
     if args.json:
