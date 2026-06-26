@@ -20,13 +20,17 @@ It comes in two halves:
 ```bash
 echo "Let's delve into this rich tapestry — a testament to the realm." \
   | python3 tell.py
-# score 90/100  (5 tells)
+# score 100/100  (7 tells)
 #
 # overused words:
 #   delve ×1
+#   realm ×1
 #   tapestry ×1
 #   testament ×1
-#   realm ×1
+#
+# cliché phrases:
+#   a testament to ×1
+#   rich tapestry ×1
 #
 # structurals:
 #   em-dash ×1

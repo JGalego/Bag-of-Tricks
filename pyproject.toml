@@ -29,7 +29,7 @@ select = ["E4", "E7", "E9", "F", "I", "W", "UP", "B"]
 # Each trick lives in its own folder with a test_<trick>.py beside it. pytest's
 # default (prepend) import mode puts each test's directory on sys.path, so
 # `import deadpan` / `import snitch` / ... resolve to the sibling module.
-testpaths = ["deadpan", "snitch", "strawman", "interrobang", "steno", "salvage", "frisk", "tell", "tollbooth", "bluff", "mole", "launder", "alibi", "fold", "grill", "lineup", "mugshot"]
+testpaths = ["deadpan", "snitch", "strawman", "interrobang", "steno", "salvage", "frisk", "tell", "tollbooth", "bluff", "mole", "launder", "alibi", "fold", "grill", "lineup", "mugshot", "combo", "squeeze"]
 python_files = ["test_*.py"]
 # -q: quiet. -p no:pylama: disable an unrelated pytest plugin some local envs
 # auto-load (it emits a pkg_resources deprecation warning). Harmless no-op in

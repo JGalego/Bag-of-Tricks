@@ -31,9 +31,11 @@ except ImportError:  # pragma: no cover - exercised only when tiktoken absent
 # Keys are short, lowercase, provider-agnostic handles.
 PRICES: dict[str, dict[str, float]] = {
     # Anthropic Claude (model ids as they ship; prices per 1M tokens)
-    "claude-opus-4-8": {"in": 15.0, "out": 75.0},
+    "claude-fable-5": {"in": 10.0, "out": 50.0},
+    "claude-opus-4-8": {"in": 5.0, "out": 25.0},
+    "claude-opus-4-7": {"in": 5.0, "out": 25.0},
     "claude-sonnet-4-6": {"in": 3.0, "out": 15.0},
-    "claude-haiku-4-5": {"in": 0.80, "out": 4.0},
+    "claude-haiku-4-5": {"in": 1.0, "out": 5.0},
     # OpenAI GPT
     "gpt-4o": {"in": 2.50, "out": 10.0},
     "gpt-4o-mini": {"in": 0.15, "out": 0.60},

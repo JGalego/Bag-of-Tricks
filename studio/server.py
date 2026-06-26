@@ -390,6 +390,22 @@ def load_trick(name: str) -> ModuleType:
     return mod
 
 
+def _path_like_token(argv: list[str]) -> str | None:
+    """Return the first flag token that looks like a filesystem path, else None.
+
+    Every node is fed its input over stdin, so a trick never needs a file-path
+    argument here. Most offline tricks accept positional file paths (and options
+    like ``--patterns FILE``); left unchecked, a flags string such as
+    ``/etc/passwd`` or ``--patterns ../secret`` turns any node into an arbitrary
+    file reader. Refuse absolute paths, parent traversal, and anything carrying a
+    path separator (numeric/boolean flag values like ``--indent 2`` are fine).
+    """
+    for tok in argv:
+        if tok in (".", "..") or tok.startswith(("/", "~")) or "/" in tok or "\\" in tok:
+            return tok
+    return None
+
+
 def run_node(name: str, flags: str, stdin_text: str, timeout: float) -> dict:
     """Run one trick in-process and capture its streams + exit code.
 
@@ -409,6 +425,15 @@ def run_node(name: str, flags: str, stdin_text: str, timeout: float) -> dict:
         }
 
     argv = shlex.split(flags) if flags else []
+    bad = _path_like_token(argv)
+    if bad is not None:
+        return {
+            "stdout": "",
+            "stderr": "",
+            "code": 126,
+            "elapsed": 0.0,
+            "error": f"refused path-like flag {bad!r} — nodes read their input from the pipe, not files",
+        }
     out_buf, err_buf = io.StringIO(), io.StringIO()
     box: dict = {"code": 0}
 

@@ -191,13 +191,13 @@ def _repair(text: str, extra: dict | None = None) -> str:
         span = _BLOCK_COMMENT.sub("", span)
         span = _LINE_COMMENT.sub("", span)
         span = py_literal.sub(lambda m: py_map[m.group(1)], span)
+        # Trailing commas only ever sit outside a string, so scrub them here —
+        # running this globally would also delete a comma inside a string value
+        # that happens to precede a } or ] (e.g. {"s": "a,}"}).
+        span = _TRAILING_COMMA.sub(r"\1", span)
         return span
 
-    text = _apply_outside_strings(text, scrub)
-    # Trailing commas can be removed globally; commas inside strings before a
-    # literal } or ] are vanishingly rare and the regex requires the bracket.
-    text = _TRAILING_COMMA.sub(r"\1", text)
-    return text
+    return _apply_outside_strings(text, scrub)
 
 
 def salvage(text: str, indent: int | None = 2, extra: dict | None = None) -> str:

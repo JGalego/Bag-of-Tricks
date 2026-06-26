@@ -39,6 +39,7 @@ import json
 import sys
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -277,7 +278,17 @@ def make_handler(cfg: Config):
         def _relay(self, resp) -> int:
             status = resp.status if hasattr(resp, "status") else resp.code
             self.send_response(status)
-            hop = {"transfer-encoding", "connection", "content-encoding"}
+            # Drop content-length (the body is re-framed as chunked below — sending
+            # both violates RFC 7230 §3.3.3) and server/date (BaseHTTPRequestHandler
+            # already emits its own, so relaying upstream's duplicates them).
+            hop = {
+                "transfer-encoding",
+                "connection",
+                "content-encoding",
+                "content-length",
+                "server",
+                "date",
+            }
             for k, v in resp.headers.items():
                 if k.lower() in hop:
                     continue

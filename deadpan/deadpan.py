@@ -107,10 +107,11 @@ _HEDGES = [
 ]
 
 # Emoji + decorative symbols. Removed at every level above "lite".
-_EMOJI = re.compile(
+_EMOJI_CLASS = (
     "[\U0001f300-\U0001faff\U00002600-\U000027bf\U0001f000-\U0001f0ff"
-    "\U00002190-\U000021ff\U00002b00-\U00002bff\U0000fe0f\U0000200d]+"
+    "\U00002190-\U000021ff\U00002b00-\U00002bff\U0000fe0f\U0000200d]"
 )
+_EMOJI = re.compile(_EMOJI_CLASS + "+")
 
 LEVELS = ("lite", "full", "ultra")
 
@@ -127,6 +128,13 @@ def _compile_sets(
         "openers": _compile([r"^\s*(?:" + p + r")" for p in openers]),
         "signoffs": _compile(
             [_SIGNOFF_BOUNDARY + p for p in signoffs], re.IGNORECASE | re.MULTILINE
+        ),
+        # Same sign-offs, but anchored to a leading emoji run instead of
+        # punctuation — so a trailing "🎉 Hope this helps!" is stripped before
+        # emoji removal collapses that emoji to a bare (non-boundary) space.
+        "signoffs_emoji": _compile(
+            [r"(?:" + _EMOJI_CLASS + r")+\s*" + p for p in signoffs],
+            re.IGNORECASE | re.MULTILINE,
         ),
         "self": _compile(self_),
         "hedges": _compile(hedges),
@@ -173,10 +181,16 @@ def _load_patterns(paths: list[str] | None) -> dict[str, list[re.Pattern]]:
 
 def _deadpan_prose(text: str, level: str, sets: dict[str, list[re.Pattern]]) -> str:
     """Apply the strip to a chunk of prose (never to code)."""
-    # Self-reference and emoji go at every level.
+    # Self-reference goes at every level.
     for rx in sets["self"]:
         text = rx.sub("", text)
     if level != "lite":
+        # A trailing emoji is often the only separator before a sign-off
+        # ("… 42 🎉 Hope this helps!"). Strip the "<emoji> sign-off" as a unit
+        # first — before emoji removal erases the boundary the sign-off matcher
+        # relies on (it anchors to .!?\n or start-of-line, not a bare space).
+        for rx in sets["signoffs_emoji"]:
+            text = rx.sub("", text)
         text = _EMOJI.sub("", text)
 
     # Openers: strip from the start of the whole chunk and each paragraph.
